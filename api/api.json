@@ -1,0 +1,208 @@
+[
+  {
+    "URL": "/building",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": [
+        {
+          "id": 1,
+          "name": "Building Name",
+          "address": "Building Address",
+          "noOfFloors": 5
+        }
+      ]
+    }
+  },
+  {
+    "URL": "/building/:id",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": {
+        "id": 1,
+        "name": "Building Name",
+        "address": "Building Address",
+        "noOfFloors": 5
+      }
+    }
+  },
+  {
+    "URL": "/building",
+    "Method": "POST",
+    "Headers": {
+      "Content-Type": "application/json"
+    },
+    "Request": {
+      "name": "Building Name",
+      "address": "Building Address",
+      "noOfFloors": 5
+    },
+    "Response": {
+      "status": 200,
+      "data": {
+        "success": true,
+        "message": "Building created successfully",
+        "data": {
+          "id": 1,
+          "name": "Building Name",
+          "address": "Building Address",
+          "noOfFloors": 5
+        }
+      }
+    }
+  },
+  {
+    "URL": "/room",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": {
+        "success": true,
+        "message": "Rooms fetched successfully",
+        "data": [
+          {
+            "id": 1,
+            "number": "101",
+            "floorNumber": 1,
+            "buildingId": 1
+          }
+        ]
+      }
+    }
+  },
+  {
+    "URL": "/room/:id",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": {
+        "success": true,
+        "message": "Room fetched successfully",
+        "data": {
+          "id": 1,
+          "number": "101",
+          "floorNumber": 1,
+          "buildingId": 1
+        }
+      }
+    }
+  },
+  {
+    "URL": "/room/:id/partitions",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": {
+        "success": true,
+        "message": "Partitions fetched successfully",
+        "data": [
+          {
+            "id": 1,
+            "name": "Main Partition",
+            "roomId": 1,
+            "buildingId": 1,
+            "occupied": false,
+            "sizeInSquareMeters": 100
+          }
+        ]
+      }
+    }
+  },
+  {
+    "URL": "/room",
+    "Method": "POST",
+    "Headers": {
+      "Content-Type": "application/json"
+    },
+    "Request": {
+      "number": "101",
+      "floorNumber": 1,
+      "buildingId": 1
+    },
+    "Response": {
+      "status": 200,
+      "data": {
+        "success": true,
+        "message": "Room created successfully",
+        "data": {
+          "id": 1,
+          "number": "101",
+          "floorNumber": 1,
+          "buildingId": 1
+        }
+      }
+    }
+  },
+  {
+    "URL": "/partition",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": [
+        {
+          "id": 1,
+          "name": "Main Partition",
+          "roomId": 1,
+          "buildingId": 1,
+          "occupied": false,
+          "sizeInSquareMeters": 100
+        }
+      ]
+    }
+  },
+  {
+    "URL": "/partition/:id",
+    "Method": "GET",
+    "Headers": {},
+    "Request": {},
+    "Response": {
+      "status": 200,
+      "data": {
+        "id": 1,
+        "name": "Main Partition",
+        "roomId": 1,
+        "buildingId": 1,
+        "occupied": false,
+        "sizeInSquareMeters": 100
+      }
+    }
+  },
+  {
+    "URL": "/partition",
+    "Method": "POST",
+    "Headers": {
+      "Content-Type": "application/json"
+    },
+    "Request": {
+      "name": "Main Partition",
+      "roomId": 1,
+      "buildingId": 1,
+      "occupied": false,
+      "sizeInSquareMeters": 100
+    },
+    "Response": {
+      "status": 200,
+      "data": {
+        "id": 1,
+        "name": "Main Partition",
+        "roomId": 1,
+        "buildingId": 1,
+        "occupied": false,
+        "sizeInSquareMeters": 100
+      }
+    }
+  }
+] 
