@@ -71,8 +71,31 @@ export type Lease = {
 	payments: Payment[];
 }
 
-export type PaymentSchedule = any
-export type Payment = any
+export type PaymentSchedule = {
+	id: number;
+	payableAmount: number;
+	paidAmount: number;
+	dueDate: Date;
+	leaseId: number;
+	paymentDate?: Date;
+}
+
+export type Payment = {
+	id: number;
+	leaseId: number;
+	scheduleId: number;
+	paidAmount: number;
+	paymentDate: Date;
+	paymentMethod: "BANK_TRANSFER";
+	bankId: number;
+	notes: string;
+	verified: boolean;
+	verificationDate: Date;
+	bankSlipPath: string
+	invoicePath: string
+	lease: Lease;
+	bank: Bank;
+}
 
 export type Bank = {
 	id?: number;

@@ -1,8 +1,29 @@
+'use client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import { links } from "./sidebar";
+import { useEffect, useState } from "react";
+import { axios } from "@/lib/axios";
 
 export default function Home() {
+  const [overview, setOverview] = useState<{
+    offices: number
+    vacantOffices: number
+    tenants: number
+    rooms: number
+    buildings: number
+    users: number
+    banks: number
+  }>()
+
+  useEffect(() => {
+    axios.get('/util/overview')
+      .then(res => {
+        setOverview(res.data.data)
+      })
+      .catch(console.error)
+  }, [])
+  
 	return (
 		<div className="flex flex-col gap-4">
 
@@ -10,20 +31,20 @@ export default function Home() {
 			<div className="grid grid-cols-3 gap-8 mb-10">
         <Card>
           <CardHeader>
-            <CardDescription>Total Rent</CardDescription>
-            <CardTitle>ETB 182,412</CardTitle>
+            <CardDescription>Total Offices</CardDescription>
+            <CardTitle>{overview?.offices}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Vacant Rooms</CardDescription>
-            <CardTitle>9</CardTitle>
+            <CardTitle>{overview?.vacantOffices}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Total Tenants</CardDescription>
-            <CardTitle>148</CardTitle>
+            <CardTitle>{overview?.tenants}</CardTitle>
           </CardHeader>
         </Card>
         {/* <Card>
@@ -43,7 +64,7 @@ export default function Home() {
 								<CardDescription>{link.title}</CardDescription>
 							</CardHeader>
 							<CardContent className="flex justify-between">
-								<CardTitle className="text-2xl">{link.data}</CardTitle>
+								<CardTitle className="text-2xl">{overview?.[link.selector as keyof typeof overview]}</CardTitle>
 								{link.icon}
 							</CardContent>
 						</Card>

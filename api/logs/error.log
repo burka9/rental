@@ -2,3 +2,13 @@
 {"level":"error","timestamp":"2025-02-23T11:27:16.462Z"}
 {"level":"error","timestamp":"2025-02-23T11:27:34.651Z"}
 {"level":"error","message":"Expected double-quoted property name in JSON at position 18","timestamp":"2025-02-23T11:52:56.663Z"}
+{"code":"WARN_DATA_TRUNCATED","driverError":{"code":"WARN_DATA_TRUNCATED","errno":1265,"index":0,"sql":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sqlMessage":"Data truncated for column 'paymentType' at row 1","sqlState":"01000"},"errno":1265,"index":0,"level":"error","query":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sql":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sqlMessage":"Data truncated for column 'paymentType' at row 1","sqlState":"01000","timestamp":"2025-03-08T15:23:07.173Z"}
+{"code":"WARN_DATA_TRUNCATED","driverError":{"code":"WARN_DATA_TRUNCATED","errno":1265,"index":0,"sql":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sqlMessage":"Data truncated for column 'paymentType' at row 1","sqlState":"01000"},"errno":1265,"index":0,"level":"error","query":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sql":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sqlMessage":"Data truncated for column 'paymentType' at row 1","sqlState":"01000","timestamp":"2025-03-08T15:23:18.119Z"}
+{"code":"WARN_DATA_TRUNCATED","driverError":{"code":"WARN_DATA_TRUNCATED","errno":1265,"index":0,"sql":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sqlMessage":"Data truncated for column 'paymentType' at row 1","sqlState":"01000"},"errno":1265,"index":0,"level":"error","query":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sql":"ALTER TABLE `leases` CHANGE `paymentType` `paymentType` enum ('0', '1') NOT NULL DEFAULT '0'","sqlMessage":"Data truncated for column 'paymentType' at row 1","sqlState":"01000","timestamp":"2025-03-08T15:24:53.120Z"}
+{"level":"error","timestamp":"2025-03-11T22:12:50.561Z"}
+{"level":"error","timestamp":"2025-03-11T22:42:20.447Z"}
+{"level":"error","timestamp":"2025-03-11T22:50:41.192Z"}
+{"level":"error","timestamp":"2025-03-11T22:51:35.883Z"}
+{"level":"error","timestamp":"2025-03-11T22:52:03.146Z"}
+{"level":"error","timestamp":"2025-03-11T22:54:04.341Z"}
+{"level":"error","timestamp":"2025-03-11T22:54:54.356Z"}

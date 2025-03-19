@@ -15,6 +15,9 @@ import Tenants from "../components/tenants";
 import ViewTenant from "../components/tenants/view";
 import Banks from '../components/banks';
 import ViewBank from '../components/banks/view';
+// import Lease from "../components/leases";
+import ViewLease from "../components/leases/view";
+import AddPayment from "../components/leases/payment/add";
 
 // Define the map outside the component to avoid re-creating it on each render.
 const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = {
@@ -29,6 +32,9 @@ const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = 
 	'tenants/view': ViewTenant,
 	'banks': Banks,
 	'banks/view': ViewBank,
+	// 'leases': Leases,
+	'leases/view': ViewLease,
+	'leases/payment/add': AddPayment,
 };
 
 export default function Dashboard() {

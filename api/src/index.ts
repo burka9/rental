@@ -54,5 +54,6 @@ Database.initialize()
 		// main()
 	})
 	.catch((err: Error) => {
+		console.log(err)
 		logger.error(err)
 	})

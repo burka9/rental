@@ -1,3 +1,4 @@
+import { addMonths, isAfter, isBefore } from "date-fns"
 import { Database } from "../db"
 import { Lease } from "../entities/Lease.entity"
 import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
@@ -90,27 +91,81 @@ export async function deleteLease(id: number) {
 }
 
 function generatePaymentSchedule(lease: Lease): Partial<PaymentSchedule>[] {
-    const schedules: Partial<PaymentSchedule>[] = []
-    const startDate = new Date(lease.startDate)
-    const endDate = new Date(lease.endDate)
-    
-    // Calculate base amount from paymentAmountPerMonth
-    const totalMonthlyAmount = Object.values(lease.paymentAmountPerMonth)
-        .reduce((sum, amount) => sum + amount, 0)
+	const { startDate, endDate, paymentIntervalInMonths: interval, paymentAmountPerMonth, initialPayment } = lease;
+    const paymentIntervalInMonths = Number(interval)
+	const schedule: Partial<PaymentSchedule>[] = [];
 
-    let currentDate = startDate
-    while (currentDate <= endDate) {
-        schedules.push({
-            leaseId: lease.id,
-            amount: totalMonthlyAmount,
-            dueDate: new Date(currentDate),
-        })
+	const leaseEndDate = new Date(endDate);
 
-        // Add months based on payment interval
-        currentDate.setMonth(currentDate.getMonth() + (lease.paymentIntervalInMonths || 1))
-    }
+	// Calculate total amount per interval
+	const totalAmountPerMonth = Object.values(paymentAmountPerMonth).reduce((sum, amount) => sum + amount, 0);
+	const intervalAmount = totalAmountPerMonth * paymentIntervalInMonths;
 
-    return schedules
+	let paymentDate = new Date(startDate); // Payment is made at the start of each period
+	const leaseId = lease.id;
+    let payableAmount = initialPayment?.amount ?? 0;
+
+    console.log('payment date -- \t lease end date -- total amount per month -- interval amount -- payment interval in months')
+    console.log(paymentDate.toDateString(), '\t', leaseEndDate.toDateString(), '\t', totalAmountPerMonth, '\t\t\t', intervalAmount, '\t\t\t', paymentIntervalInMonths)
+    console.log('--------------------------------')
+
+	while (!isAfter(paymentDate, leaseEndDate)) {
+        console.log('payment date:', paymentDate.toDateString())
+        // Check if this is the final payment and needs proration
+        // const nextPaymentDate = new Date(paymentDate);
+        // nextPaymentDate.setMonth(nextPaymentDate.getMonth() + paymentIntervalInMonths);
+        const nextPaymentDate = addMonths(paymentDate, paymentIntervalInMonths)
+
+        console.log('next payment date:', nextPaymentDate.toDateString())
+        console.log('amount:', intervalAmount)
+        console.log('payable amount:', payableAmount)
+
+        let paid = 0
+
+        if (payableAmount > 0) {
+            if (payableAmount >= intervalAmount) {
+                paid = intervalAmount
+                payableAmount -= intervalAmount
+            } else {
+                paid = payableAmount
+                payableAmount = 0
+            }
+        }
+        
+        if (!isBefore(nextPaymentDate, leaseEndDate)) {
+            const remainingMonths = (leaseEndDate.getFullYear() - paymentDate.getFullYear()) * 12 
+                                                        + (leaseEndDate.getMonth() - paymentDate.getMonth());
+
+            const finalAmount = totalAmountPerMonth * remainingMonths;
+            schedule.push({
+                dueDate: paymentDate,
+                payableAmount: finalAmount,
+                leaseId,
+                lease,
+                paidAmount: paid,
+                paymentDate: paid !== 0 ? new Date(paymentDate) : undefined
+            });
+            break;
+        }
+
+        
+        schedule.push({
+            dueDate: new Date(paymentDate),
+            payableAmount: intervalAmount,
+            leaseId,
+            lease,
+            paidAmount: paid,
+            paymentDate: paid !== 0 ? new Date(paymentDate) : undefined
+        });
+
+        // Move to the next payment period
+        paymentDate = nextPaymentDate;
+        console.log('\t-----')
+	}
+
+    console.log(schedule.length)
+
+	return schedule;
 }
 
 export async function getLeasesByTenant(tenantId: number) {

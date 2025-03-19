@@ -15,12 +15,42 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 export const links = [
-  { href: '/dashboard/buildings', title: 'Buildings', icon: <BuildingIcon />, data: 5 },
-  { href: '/dashboard/rooms', title: 'Rooms', icon: <HouseIcon />, data: 31 },
-  { href: '/dashboard/partitions', title: 'Partitions', icon: <PanelsLeftRightIcon />, data: 79 },
-  { href: '/dashboard/tenants', title: 'Tenants', icon: <LucideUsers />, data: 148 },
-  { href: '/dashboard/users', title: 'Users', icon: <UserIcon />, data: 148 },
-  { href: '/dashboard/banks', title: 'Banks', icon: <MilestoneIcon />, data: 148 },
+  {
+    href: '/dashboard/buildings',
+    title: 'Buildings',
+    icon: <BuildingIcon />,
+    selector: 'buildings',
+  },
+  {
+    href: '/dashboard/rooms',
+    title: 'Rooms',
+    icon: <HouseIcon />,
+    selector: 'rooms',
+  },
+  {
+    href: '/dashboard/offices',
+    title: 'Offices',
+    icon: <PanelsLeftRightIcon />,
+    selector: 'offices',
+  },
+  {
+    href: '/dashboard/tenants',
+    title: 'Tenants',
+    icon: <LucideUsers />,
+    selector: 'tenants',
+  },
+  {
+    href: '/dashboard/users',
+    title: 'Users',
+    icon: <UserIcon />,
+    selector: 'users',
+  },
+  {
+    href: '/dashboard/banks',
+    title: 'Banks',
+    icon: <MilestoneIcon />,
+    selector: 'banks',
+  },
 ]
 
 export default function AppSidebar() {
@@ -41,15 +71,15 @@ export default function AppSidebar() {
                   <SidebarMenuButton
                     asChild
                     isActive={
-                      '/dashboard/home' === pathname ||
-                      ('dashboard' === pathname.replaceAll('/', ''))
+                      // pathname doesnt match any of the links
+                      !links.some(link => pathname.startsWith(link.href))
                     }
                     className="data-[active=true]:font-bold"
                   >
                     <Link
                       href={'/dashboard'}
                       className="flex gap-4 items-center my-1 p-2 h-[40px] text-gray-900/50
-		                    data-[active=true]:bg-primary/100 data-[active=true]:text-white"
+		                    data-[active=true]:bg-primary data-[active=true]:text-white"
                     >
                       {<HouseIcon />}
                       <span>Home</span>
@@ -63,7 +93,7 @@ export default function AppSidebar() {
                     <Link
                       href={item.href}
                       className="flex gap-4 items-center my-1 p-2 h-[40px] text-gray-900/50
-		                    data-[active=true]:bg-primary/100 data-[active=true]:text-white"
+		                    data-[active=true]:bg-primary data-[active=true]:text-white"
                     >
                       {item.icon}
                       <span>{item.title}</span>

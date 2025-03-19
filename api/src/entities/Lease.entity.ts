@@ -1,11 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, JoinColumn } from "typeorm";
 import { Tenant } from "./Tenant.entity";
 import { PaymentSchedule } from "./PaymentSchedule.entity";
 import { Payment } from "./Payment.entity";
 
 export enum PaymentType {
-    "PREPAID",
-    "POSTPAID",
+    PREPAID = "PREPAID",
+    POSTPAID = "POSTPAID",
+}
+
+export enum LateFeeType {
+    FIXED = "FIXED",
+    PERCENTAGE = "PERCENTAGE"
 }
 
 @Entity("leases")
@@ -30,7 +35,7 @@ export class Lease {
         enum: PaymentType,
         default: PaymentType.PREPAID
     })
-    paymentType: "PREPAID" | "POSTPAID";
+    paymentType: PaymentType;
 
     @Column("json")
     paymentAmountPerMonth: {
@@ -56,9 +61,10 @@ export class Lease {
 
     @Column({
         type: "enum",
-        enum: ["PERCENTAGE", "FIXED"]
+        enum: LateFeeType,
+        default: LateFeeType.PERCENTAGE
     })
-    lateFeeType: "PERCENTAGE" | "FIXED";
+    lateFeeType: LateFeeType;
 
     @Column()
     lateFeeGracePeriodInDays: number;
@@ -73,6 +79,7 @@ export class Lease {
     active: boolean;
 
     @ManyToOne(() => Tenant, tenant => tenant.leases)
+    @JoinColumn({ name: "tenantId" })
     tenant: Tenant;
 
     @OneToMany(() => PaymentSchedule, schedule => schedule.lease)

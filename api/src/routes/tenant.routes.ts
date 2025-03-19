@@ -4,7 +4,7 @@ import path from "path";
 import { createTenant, deleteTenant, getTenant, getTenantByPhone, updateTenant } from "../controller/tenant.controller";
 import { createLease, updateLease } from "../controller/lease.controller";
 import { getPartitions, updatePartition } from "../controller/partition.controller";
-
+import { PaymentType } from "../entities/Lease.entity";
 // Configure multer for file upload
 const storage = multer.diskStorage({
 	destination: function (req: any, file: any, cb: any) {
@@ -56,7 +56,7 @@ export default function(): Router {
 	router.post("/", upload.single("agreementFile"), async (req: any, res: any) => {
 		const body = req.body
 		const file = req.file
-
+		
 		// exit if user.phone is already in the database
 		const existingTenant = await getTenantByPhone(body.phone)
 		if (existingTenant) {
@@ -104,7 +104,7 @@ export default function(): Router {
 			},
 			lateFeeGracePeriodInDays: 0,
 			active: true,
-			paymentType: "PREPAID",
+			paymentType: PaymentType.PREPAID,
 			files: [{
 				filename: file?.filename || "",
 				path: file?.path || ""

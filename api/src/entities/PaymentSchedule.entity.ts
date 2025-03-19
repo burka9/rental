@@ -7,7 +7,10 @@ export class PaymentSchedule {
     id: number;
 
     @Column("decimal")
-    amount: number;
+    payableAmount: number;
+
+    @Column("decimal")
+    paidAmount: number;
 
     @Column()
     dueDate: Date;

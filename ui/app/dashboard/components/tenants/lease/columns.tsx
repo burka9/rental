@@ -7,20 +7,61 @@ import Link from "next/link"
 
 export const columns: ColumnDef<Lease>[] = [
 	{
+		accessorKey: "startDate",
+		header: "Start Date",
+		cell: ({ row }) => {
+			return (
+				<div>
+					{new Date(row.getValue("startDate")).toDateString()}
+				</div>
+			)
+		}
+	},
+	{
+		accessorKey: "endDate",
+		header: "End Date",
+		cell: ({ row }) => {
+			return (
+				<div>
+					{new Date(row.getValue("endDate")).toDateString()}
+				</div>
+			)
+		}
+	},
+	{
+		accessorKey: "paymentIntervalInMonths",
+		header: "Payment Interval",
+	},
+	{
+		header: "Payment Amount",
+		cell: ({ row }) => {
+			const { base, utility } = row.original.paymentAmountPerMonth
+			return (
+				<div>
+					{Number(base) + Number(utility)}
+				</div>
+			)
+		}
+	},
+	{
+		accessorKey: "deposit",
+		header: "Deposit",
+	},
+	{
 		header: "Actions",
 		cell: ({ row }) => {
 			return (
 				<div className="flex gap-2">
-					<Link href={`/dashboard/rooms/view?id=${row.original.id}`}>
+					<Link href={`/dashboard/leases/view?id=${row.original.id}`}>
 						<Button
 							variant="outline"
 							size="sm"
 							className="h-8 w-full"
 							>
-							View Room
+							View Lease
 						</Button>
 					</Link>
-					<Link href={`/dashboard/rooms/view?id=${row.original.id}&edit=true`}>
+					<Link href={`/dashboard/leases/view?id=${row.original.id}&edit=true`}>
 						<Button
 							variant="outline"
 							size="sm"
