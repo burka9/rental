@@ -6,8 +6,8 @@ export const Database = new DataSource({
 	url: env.DB_URL,
 	// logging: true,
 
-	// dropSchema: true,
-	// synchronize: true,
+//	dropSchema: true,
+//	synchronize: true,
 
 	entities: [
 		env.NODE_ENV === "production"
