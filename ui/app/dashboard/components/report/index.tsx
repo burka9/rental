@@ -41,12 +41,12 @@ export default function Report() {
 
       // Calculate late payments and tenants
       const latePaymentCount = payments.filter((payment: Payment) => 
-        new Date(payment.paymentDate) > new Date((payment as any).paymentSchedule.dueDate)
+        new Date(payment.paymentDate) > new Date((payment as { [key: string]: string | Date | number }).paymentSchedule.dueDate)
       ).length;
       setLatePayments(latePaymentCount);
 
       const lateTenantCount = new Set(payments
-        .filter((payment: Payment) => new Date(payment.paymentDate) > new Date((payment as any).paymentSchedule.dueDate))
+        .filter((payment: Payment) => new Date(payment.paymentDate) > new Date((payment as { [key: string]: string | Date | number }).paymentSchedule.dueDate))
         .map((payment: Payment) => payment.lease.tenantId)
       ).size;
       setLateTenants(lateTenantCount);
