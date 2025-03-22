@@ -9,8 +9,6 @@ import logger from "./lib/logger";
 import { Database } from "./db";
 import { errorHandler } from "./middlewares/error";
 import 'express-async-errors'
-import { main } from "./test";
-import { createBlocks, add_data } from "./import_data";
 import { Server } from "socket.io";
 import handleSocket from "./socket";
 
