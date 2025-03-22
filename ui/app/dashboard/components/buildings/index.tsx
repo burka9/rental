@@ -53,7 +53,7 @@ export default function Buildings() {
 							<CardContent className="flex flex-col gap-1">
 								<Label>Rooms: {building.rooms?.length}</Label>
 								<Label>Floors: {building.noOfFloors}</Label>
-								<Label>Offices: {building.rooms?.reduce((total, room) => total + room.partitions.length, 0)}</Label>
+								<Label>Rooms: {building.rooms?.length}</Label>
 							</CardContent>
 						</CardHeader>
 					</Card>

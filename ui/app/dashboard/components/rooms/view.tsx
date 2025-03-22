@@ -14,14 +14,13 @@ import { ChevronLeftIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { DataTable } from "./partitions/data-table";
-import { columns } from "./partitions/columns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formSchema = z.object({
-	number: z.string(),
-	floorNumber: z.coerce.number().min(0, "Floor number is required"),
+	name: z.string(),
+	floorNumber: z.string(),
 	buildingId: z.coerce.number().min(0, "Building is required"),
+	sizeInSquareMeters: z.coerce.number().min(0, "Size in square meters is required"),
 })
 
 export default function ViewRoom() {
@@ -45,9 +44,10 @@ export default function ViewRoom() {
 		mode: "onChange",
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			number: room?.number ?? "",
-			// floorNumber: Number(room?.floorNumber ?? "",
+			name: room?.name ?? "",
+			floorNumber: room?.floorNumber ?? "",
 			buildingId: room?.buildingId ?? -1,
+			sizeInSquareMeters: room?.sizeInSquareMeters,
 		}
 	})
 
@@ -63,7 +63,10 @@ export default function ViewRoom() {
 				.then(data => {
 					if (!data) throw new Error()
 
-					return createRoom(form.getValues())
+					return createRoom({
+						...form.getValues(),
+						occupied: false,
+					})
 				})
 				.then(data => {
 					console.log(form.getValues())
@@ -93,8 +96,8 @@ export default function ViewRoom() {
 
 							setRoom(() => ({
 								id: room.id,
-								partitions: room.partitions,
-								...form.getValues()
+								...form.getValues(),
+								occupied: room.occupied
 							}))
 							toast.success("Room updated successfully")
 							setEditing(() => false)
@@ -124,48 +127,45 @@ export default function ViewRoom() {
 				console.log(error)
 			})
 	}
-
-	// const [floorFilter, setFloorFilter] = useState<string>("all")
-	
-	// const floorFilterChange = (value: string) => {
-	// 	setFloorFilter(value)
-	// }
-
-	const partitions = useMemo(() => {
-		if (!room) return []
-
-		// if (floorFilter === "all") return room.partitions
-
-		// return room.partitions.filter(partition => partition.toString() === floorFilter)
-		return room.partitions
-	// }, [floorFilter, room])
-	}, [room])
 	
   useEffect(() => {
 		const id = Number(searchParams.get("id"))
+		const buildingId = Number(searchParams.get("buildingId"))
 
-		if (!id) return;
+		if (!buildings.length) {
+			fetchBuildings()
+		}
 
-    fetchRoom(id)
-      .then((data) => {
-				if (data == null) {
-					router.push(`/dashboard/rooms`)
-				} else {
-					setRoom(data);
-				}
-      })
-      .catch((error) => {
-        console.log(error);
-      });
-  }, [fetchRoom, searchParams, router]);
+		if (buildingId) {
+			const building = buildings.find(b => b.id === buildingId)
+			if (building) {
+				form.setValue("buildingId", building.id)
+			}
+		}
 
+		if (id) {
+			fetchRoom(id)
+				.then((data) => {
+					if (data == null) {
+						router.push(`/dashboard/rooms`)
+					} else {
+						setRoom(data);
+					}
+				})
+				.catch((error) => {
+					console.log(error);
+				});
+		}
+	}, [fetchRoom, searchParams, router, form, buildings, fetchBuildings]);
+	
 	useEffect(() => {
 		if (!room) return;
 
 		form.reset({
-			number: room.number,
+			name: room.name,
 			floorNumber: room.floorNumber,
 			buildingId: Number(room.buildingId),
+			sizeInSquareMeters: room.sizeInSquareMeters,
 		})
 	}, [room, form])
 	
@@ -198,7 +198,8 @@ export default function ViewRoom() {
 							setEditing(() => false);
 							form.reset({
 								floorNumber: room?.floorNumber,
-								number: room?.number,
+								name: room?.name,
+								sizeInSquareMeters: room?.sizeInSquareMeters,
 							});
 						} else {
 							setOpenDeleteDialog(true);
@@ -227,15 +228,15 @@ export default function ViewRoom() {
 				<Form {...form}>
 					<form
 						onSubmit={form.handleSubmit(handleSubmit)}
-						className="flex flex-col gap-2 max-w-lg w-full mx-auto"
+						className="flex flex-col gap-2 max-w-xl w-full mx-auto"
 					>
 						<div className="grid grid-cols-3 gap-4">
 							<FormField
 								control={form.control}
-								name="number"
+								name="name"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>Room Number</FormLabel>
+										<FormLabel>Room Name</FormLabel>
 										<FormControl>
 											<Input
 												{...field}
@@ -294,28 +295,29 @@ export default function ViewRoom() {
 									</FormItem>
 								)}
 							/>
+
+							<FormField
+								control={form.control}
+								name="sizeInSquareMeters"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Size in Square Meters</FormLabel>
+										<FormControl>
+											<Input {...field} type="number" min={0} />
+										</FormControl>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
 						</div>
 					</form>
 				</Form>
 
-				{
+				{/* {
 					creating ? null : <div className="flex flex-col justify-center gap-4">
 						<div className="flex items-center justify-between">
 							<div className="flex flex-col gap-2">
 								<Label className="font-bold text-xl">Offices</Label>
-								{/* <Select onValueChange={floorFilterChange}>
-									<SelectTrigger className="w-[150px]">
-										<SelectValue placeholder="Floor Number" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">All Floors</SelectItem>
-										{Array.from({ length: building?.noOfFloors || 0 }).map((_, i) => (
-											<SelectItem key={i + 1} value={(i + 1).toString()}>
-												Floor {i + 1}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select> */}
 							</div>
 
 							<div className="flex gap-2 items-center">
@@ -324,10 +326,8 @@ export default function ViewRoom() {
 								</Link>
 							</div>
 						</div>
-
-						<DataTable columns={columns} data={partitions} />
 					</div>
-				}
+				} */}
       </div>
     </div>
   );

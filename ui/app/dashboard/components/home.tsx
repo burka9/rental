@@ -7,8 +7,7 @@ import { axios } from "@/lib/axios";
 
 export default function Home() {
   const [overview, setOverview] = useState<{
-    offices: number
-    vacantOffices: number
+    vacantRooms: number
     tenants: number
     rooms: number
     buildings: number
@@ -31,14 +30,14 @@ export default function Home() {
 			<div className="grid grid-cols-3 gap-8 mb-10">
         <Card>
           <CardHeader>
-            <CardDescription>Total Offices</CardDescription>
-            <CardTitle>{overview?.offices}</CardTitle>
+            <CardDescription>Total Rooms</CardDescription>
+            <CardTitle>{overview?.rooms}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
             <CardDescription>Vacant Rooms</CardDescription>
-            <CardTitle>{overview?.vacantOffices}</CardTitle>
+            <CardTitle>{overview?.vacantRooms}</CardTitle>
           </CardHeader>
         </Card>
         <Card>

@@ -1,12 +1,11 @@
 import { create } from "zustand"
 import { axios } from "../axios"
-import { Bank, Building, Partition, Room } from "../types"
+import { Bank, Building, Room } from "../types"
 import { useStore } from "."
 
 type StoreState = {
 	buildings: Building[]
 	rooms: Room[]
-	partitions: Partition[]
 	banks: Bank[]
 }
 
@@ -22,12 +21,6 @@ type StoreAction = {
 	createRoom: (room: Partial<Room>) => Promise<boolean>
 	updateRoom: (room: Partial<Room>) => Promise<Room | null>
 	deleteRoom: (id: number) => Promise<boolean>
-
-	fetchPartitions: () => Promise<Partition[]>
-	fetchPartition: (id: number) => Promise<Partition | null>
-	createPartition: (partition: Partial<Partition>) => Promise<boolean>
-	updatePartition: (partition: Partial<Partition>) => Promise<Partition | null>
-	deletePartition: (id: number) => Promise<boolean>
 
 	fetchBanks: () => Promise<Bank[]>
 	fetchBank: (id: number) => Promise<Bank | null>
@@ -228,104 +221,6 @@ export const usePropertyStore = create<Store>(set => ({
 
 			set(state => ({
 				rooms: state.rooms.filter(room => room.id !== id)
-			}))
-
-			return res.data.success
-		} catch(err) {
-			console.log(err)
-			return false
-		}
-	},
-
-	partitions: [],
-	fetchPartitions: async () => {
-		const { user } = useStore.getState()
-
-		try {
-			const res = await axios.get('/partition', {
-				headers: {
-					Authorization: `Bearer ${user?.token}`
-				}
-			})
-
-			set({ partitions: res.data.data as Partition[] })
-
-			return res.data.data as Partition[]
-		} catch(err) {
-			console.log(err)
-			return []
-		}
-	},
-	fetchPartition: async (id: number) => {
-		const { user } = useStore.getState()
-
-		try {
-			const res = await axios.get(`/partition/${id}`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`
-				}
-			})
-
-			return res.data.data as Partition
-		} catch(err) {
-			console.log(err)
-			return null
-		}
-	},
-	createPartition: async (partition: Partial<Partition>) => {
-		const { user } = useStore.getState()
-
-		try {
-			const res = await axios.post('/partition', partition, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`
-				}
-			})
-
-			set(state => ({
-				partitions: [...state.partitions, res.data.data]
-			}))
-
-			return res.data.success
-		} catch(err) {
-			console.log(err)
-			return false
-		}
-	},
-	updatePartition: async (partition: Partial<Partition>) => {
-		const { user } = useStore.getState()
-
-		try {
-			const res = await axios.put(`/partition/${partition.id}`, partition, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`
-				}
-			})
-
-			set(state => ({
-				partitions: state.partitions.map(partition => 
-					partition.id === res.data.data.id ? res.data.data : partition
-				)
-			}))
-
-			return res.data.data
-		} catch(err) {
-			console.log(err)
-			return null
-		}
-	},
-	deletePartition: async (id: number) => {
-		const { user } = useStore.getState()
-
-		try {
-			const res = await axios.delete(`/partition/${id}`, {
-				headers: {
-					Authorization: `Bearer ${user?.token}`
-				}
-			})
-
-			set(state => ({
-				partitions: state.partitions.filter(partition => partition.id !== id)
 			}))
 
 			return res.data.success

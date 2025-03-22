@@ -7,16 +7,23 @@ import Link from "next/link"
 
 export const columns: ColumnDef<Room>[] = [
 	{
-		accessorKey: "number",
-		header: "Room Number"
+		accessorKey: "name",
+		header: "Room Name"
 	},
 	{
 		accessorKey: "floorNumber",
 		header: "Floor number"
 	},
 	{
-		header: "Number of offices",
-		cell: ({ row }) => row.original.partitions.length
+		accessorKey: "sizeInSquareMeters",
+		header: "Size in square meters"
+	},
+	{
+		accessorKey: "occupied",
+		cell: ({ row }) => row.original.occupied
+			? <p className="bg-slate-300 text-center">Rented</p>
+			: <p className="bg-green-300 text-center">Free</p>,
+		header: "Occupied"
 	},
 	{
 		header: "Actions",

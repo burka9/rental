@@ -1,11 +1,12 @@
 import { create } from "zustand"
-import { Tenant, Lease } from "../types"
+import { Tenant, Lease, Payment } from "../types"
 import { useStore } from "."
 import { axios } from "../axios"
 
 type StoreState = {
 	tenants: Tenant[]
 	leases: Lease[]
+	payments: Payment[]
 }
 
 type StoreAction = {
@@ -219,5 +220,7 @@ export const useTenantStore = create<Store>(set => ({
 			console.log(err)
 			return false
 		}
-	}
+	},
+
+	payments: [],
 }))

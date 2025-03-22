@@ -12,7 +12,7 @@ export const columns: ColumnDef<Lease>[] = [
 		cell: ({ row }) => {
 			return (
 				<div>
-					{new Date(row.getValue("startDate")).toDateString()}
+					{row.getValue("startDate") ? new Date(row.getValue("startDate")).toDateString() : ""}
 				</div>
 			)
 		}
@@ -23,7 +23,7 @@ export const columns: ColumnDef<Lease>[] = [
 		cell: ({ row }) => {
 			return (
 				<div>
-					{new Date(row.getValue("endDate")).toDateString()}
+					{row.getValue("endDate") ? new Date(row.getValue("endDate")).toDateString() : ""}
 				</div>
 			)
 		}

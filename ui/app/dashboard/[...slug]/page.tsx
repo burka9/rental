@@ -9,8 +9,6 @@ import Buildings from "../components/buildings";
 import ViewBuilding from "../components/buildings/view";
 import Rooms from "../components/rooms";
 import ViewRoom from '../components/rooms/view'
-import Partitions from "../components/partitions";
-import ViewPartition from "../components/partitions/view";
 import Tenants from "../components/tenants";
 import ViewTenant from "../components/tenants/view";
 import Banks from '../components/banks';
@@ -18,6 +16,8 @@ import ViewBank from '../components/banks/view';
 // import Lease from "../components/leases";
 import ViewLease from "../components/leases/view";
 import AddPayment from "../components/leases/payment/add";
+import Notification from "../components/notification";
+import Report from "../components/report";
 
 // Define the map outside the component to avoid re-creating it on each render.
 const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = {
@@ -26,8 +26,6 @@ const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = 
 	'buildings/view': ViewBuilding,
 	'rooms': Rooms,
 	'rooms/view': ViewRoom,
-	'partitions': Partitions,
-	'partitions/view': ViewPartition,
 	'tenants': Tenants,
 	'tenants/view': ViewTenant,
 	'banks': Banks,
@@ -35,6 +33,8 @@ const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = 
 	// 'leases': Leases,
 	'leases/view': ViewLease,
 	'leases/payment/add': AddPayment,
+	'notification': Notification,
+	'report': Report,
 };
 
 export default function Dashboard() {

@@ -37,25 +37,26 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePropertyStore } from "@/lib/store/property";
-import { useStore } from "@/lib/store";
 import { axios } from "@/lib/axios";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
-const officeForm = z.object({
-  buildingId: z.string(),
-  roomId: z.string(),
-  officeId: z.string(),
+const roomForm = z.object({
+  buildingId: z.string().optional(),
+  roomId: z.string().optional(),
 });
 
 const formSchema = z.object({
   // tenant info
   name: z.string(),
-  phone: z.string(),
-  address: z.string(),
-  tinNumber: z.string(),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  tinNumber: z.string().optional(),
+  isShareholder: z.boolean().optional(),
 
   // lease info
-  startDate: z.coerce.date(),
-  endDate: z.coerce.date(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
   agreementFile: z
     .instanceof(File)
     .refine(
@@ -64,20 +65,21 @@ const formSchema = z.object({
       "Only JPEG, PNG, or PDF files are allowed"
     )
     .refine(
-      (file) => file.size <= 5 * 1024 * 1024, // 5MB limit
-      "File size must be less than 5MB"
-    ),
+      (file) => file.size <= 10 * 1024 * 1024, // 10MB limit
+      "File size must be less than 10MB"
+    )
+    .optional(),
   // paymentType: z.string(),
   paymentIntervalInMonths: z.string(), // it should be a number
   paymentAmountPerMonth: z.object({
     base: z.coerce.number().min(0),
-    utility: z.coerce.number().min(0),
+    utility: z.coerce.number().min(0).optional(),
   }),
-  deposit: z.coerce.number().min(0),
-  lateFee: z.coerce.number().min(0),
-  lateFeeType: z.string(),
-  offices: z.array(officeForm),
-  initialPaymentAmount: z.coerce.number().min(0),
+  deposit: z.coerce.number().min(0).optional(),
+  lateFee: z.coerce.number().optional(),
+  lateFeeType: z.string().optional(),
+  rooms: z.array(roomForm).optional(),
+  initialPaymentAmount: z.coerce.number().min(0).optional(),
   initialPaymentDate: z.coerce.date().optional(),
 });
 
@@ -86,21 +88,10 @@ export default function ViewTenant() {
   const [editing, setEditing] = useState(false);
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const router = useRouter();
-  const {
-    fetchTenants,
-    fetchTenant,
-    updateTenant,
-    deleteTenant,
-  } = useTenantStore();
+  const { fetchTenants, fetchTenant, updateTenant, deleteTenant } =
+    useTenantStore();
 
-  const {
-    buildings,
-    fetchBuildings,
-    rooms,
-    fetchRooms,
-    partitions,
-    fetchPartitions,
-  } = usePropertyStore();
+  const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
 
   useEffect(() => {
     fetchTenants();
@@ -112,9 +103,6 @@ export default function ViewTenant() {
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
-  useEffect(() => {
-    fetchPartitions();
-  }, [fetchPartitions]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     mode: "onChange",
@@ -124,6 +112,7 @@ export default function ViewTenant() {
       phone: tenant?.phone ?? "",
       address: tenant?.address ?? "",
       tinNumber: tenant?.tinNumber ?? "",
+      isShareholder: tenant?.isShareholder ?? false,
       // startDate: tenant?.leases[0]?.startDate ?? "",
       // endDate: tenant?.leases[0]?.endDate ?? "",
       // paymentType: tenant?.leases[0]?.paymentType ?? "",
@@ -135,88 +124,122 @@ export default function ViewTenant() {
       // deposit: tenant?.leases[0]?.deposit ?? 0,
       // lateFee: tenant?.leases[0]?.lateFee ?? 0,
       // lateFeeType: tenant?.leases[0]?.lateFeeType ?? "",
-      offices: [{}],
+      rooms: [{}],
     },
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
-    name: "offices",
+    name: "rooms",
   });
 
   const searchParams = useSearchParams();
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
+    const formData = new FormData();
+
+    formData.append("name", values.name);
+
+    if (values.phone) {
+      formData.append("phone", values.phone);
+    }
+    if (values.address) {
+      formData.append("address", values.address);
+    }
+    if (values.tinNumber) {
+      formData.append("tinNumber", values.tinNumber);
+    }
+
+    if (values.startDate) {
+      formData.append("startDate", values.startDate.toISOString());
+    }
+    if (values.endDate) {
+      formData.append("endDate", values.endDate.toISOString());
+    }
+    if (values.agreementFile) {
+      formData.append("agreementFile", values.agreementFile);
+    }
+
+    formData.append(
+      "paymentAmountPerMonth",
+      JSON.stringify(values.paymentAmountPerMonth)
+    );
+    formData.append("rooms", JSON.stringify(values.rooms));
+
+    if (values.deposit) {
+      formData.append("deposit", values.deposit.toString());
+    }
+    if (values.lateFee) {
+      formData.append("lateFee", values.lateFee.toString());
+    }
+    if (values.lateFeeType) {
+      formData.append("lateFeeType", values.lateFeeType);
+    }
+    if (values.paymentIntervalInMonths) {
+      formData.append(
+        "paymentIntervalInMonths",
+        values.paymentIntervalInMonths
+      );
+    }
+    if (values.initialPaymentAmount) {
+      formData.append(
+        "initialPaymentAmount",
+        values.initialPaymentAmount.toString()
+      );
+    }
+    if (values.initialPaymentDate) {
+      formData.append(
+        "initialPaymentDate",
+        values.initialPaymentDate.toISOString()
+      );
+    }
+
+    formData.append("isShareholder", values.isShareholder ? "true" : "false");
+
+    form
+      .trigger()
+      .then((data) => {
+        if (!data) throw new Error();
+
+        return axios.post("/tenant", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      })
+      .then((response) => {
+        // pass is a 2xx response status code
+        const pass = response.status >= 200 && response.status < 300;
+
+        if (pass) {
+          toast.success("Tenant created successfully");
+          router.push("/dashboard/tenants");
+        }
+      })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .catch((error: any) => {
+        console.error(error);
+        const msg = error.response?.data?.message ?? "Failed to create tenant";
+
+        toast.error(msg);
+      });
   };
 
-  const { user } = useStore();
+  // const { user } = useStore();
 
   const buttonClicked = () => {
     if (creating) {
       console.log(form.getValues());
-
-      const formData = new FormData();
-
-      formData.append("name", form.getValues().name);
-      formData.append("phone", form.getValues().phone);
-      formData.append("address", form.getValues().address);
-      formData.append("tinNumber", form.getValues().tinNumber);
-
-      formData.append("offices", JSON.stringify(form.getValues().offices));
-
-      formData.append("startDate", form.getValues().startDate.toString());
-      formData.append("endDate", form.getValues().endDate.toString());
-      formData.append("lateFee", form.getValues().lateFee.toString());
-      formData.append("lateFeeType", form.getValues().lateFeeType);
-
-      formData.append(
-        "paymentIntervalInMonths",
-        form.getValues().paymentIntervalInMonths
-      );
-      formData.append(
-        "paymentAmountPerMonth",
-        JSON.stringify(form.getValues().paymentAmountPerMonth)
-      );
-      formData.append("deposit", form.getValues().deposit.toString());
-
-			try {
-				formData.append(
-					"initialPaymentDate",
-					(form.getValues().initialPaymentDate || "").toString()
-				);
-			} catch {
-			}
-
-      formData.append(
-        "initialPaymentAmount",
-        form.getValues().initialPaymentAmount.toString()
-      );
-
-      formData.append("agreementFile", form.getValues().agreementFile);
 
       form
         .trigger()
         .then((data) => {
           if (!data) throw new Error();
 
-          return axios.post("/tenant", formData, {
-            headers: {
-              Authorization: `Bearer ${user?.token}`,
-              "Content-Type": "multipart/form-data",
-            },
-          });
+          handleSubmit(form.getValues());
         })
-        .then((data) => {
-          console.log(form.getValues());
-
-          if (data) {
-            router.push(
-              `/dashboard/tenants?message=Tenant created successfully`
-            );
-          } else {
-            toast.error("Failed to create tenant");
-          }
+        .catch((error) => {
+          console.log(error);
         });
     } else if (editing) {
       if (!tenant) return;
@@ -416,7 +439,7 @@ export default function ViewTenant() {
             className="flex flex-col gap-2 w-full mx-auto"
           >
             <Label className="text-xl">Tenant Information</Label>
-            <div className="grid grid-cols-4 gap-4 mx-8">
+            <div className="grid grid-cols-3 gap-4 mx-8">
               <FormField
                 control={form.control}
                 name="name"
@@ -508,6 +531,32 @@ export default function ViewTenant() {
                   </FormItem>
                 )}
               />
+
+              <FormField
+                control={form.control}
+                name="isShareholder"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-4">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        disabled={!creating && !editing}
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel
+                        className={cn(
+                          "cursor-pointer",
+                          !creating && !editing ? "opacity-60 cursor-not-allowed" : ""
+                        )}
+                      >
+                        Shareholder
+                      </FormLabel>
+                    </div>
+                  </FormItem>
+                )}
+              />
             </div>
 
             {creating && (
@@ -522,19 +571,15 @@ export default function ViewTenant() {
                       >
                         <FormField
                           control={form.control}
-                          name={`offices.${index}.buildingId`}
+                          name={`rooms.${index}.buildingId`}
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Select Building</FormLabel>
                               <Select
                                 onValueChange={(value) => {
                                   field.onChange(value);
-                                  // Reset room and office when building changes
-                                  form.setValue(`offices.${index}.roomId`, "");
-                                  form.setValue(
-                                    `offices.${index}.officeId`,
-                                    ""
-                                  );
+                                  // Reset room when building changes
+                                  form.setValue(`rooms.${index}.roomId`, "");
                                 }}
                                 value={field.value}
                               >
@@ -561,22 +606,17 @@ export default function ViewTenant() {
 
                         <FormField
                           control={form.control}
-                          name={`offices.${index}.roomId`}
+                          name={`rooms.${index}.roomId`}
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Select Room</FormLabel>
                               <Select
                                 onValueChange={(value) => {
-                                  field.onChange(value);
-                                  // Reset office when room changes
-                                  form.setValue(
-                                    `offices.${index}.officeId`,
-                                    ""
-                                  );
+                                  field.onChange(value); // Update the roomId with the selected value
                                 }}
                                 value={field.value}
                                 disabled={
-                                  !form.watch(`offices.${index}.buildingId`)
+                                  !form.watch(`rooms.${index}.buildingId`)
                                 }
                               >
                                 <FormControl>
@@ -589,60 +629,14 @@ export default function ViewTenant() {
                                     .filter(
                                       (room) =>
                                         room.buildingId?.toString() ===
-                                        form.watch(
-                                          `offices.${index}.buildingId`
-                                        )
+                                        form.watch(`rooms.${index}.buildingId`)
                                     )
                                     .map((room) => (
                                       <SelectItem
                                         key={room.id}
                                         value={room.id.toString()}
                                       >
-                                        {room.number}
-                                      </SelectItem>
-                                    ))}
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name={`offices.${index}.officeId`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Select Office</FormLabel>
-                              <Select
-                                onValueChange={field.onChange}
-                                value={field.value}
-                                disabled={
-                                  !form.watch(`offices.${index}.roomId`)
-                                }
-                              >
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Select Office" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  {partitions
-																		.filter(
-																			(part) =>
-																				!part.occupied
-																		)
-                                    .filter(
-                                      (part) =>
-                                        part.roomId?.toString() ===
-                                        form.watch(`offices.${index}.roomId`)
-                                    )
-                                    .map((office) => (
-                                      <SelectItem
-                                        key={office.id}
-                                        value={office.id.toString()}
-                                      >
-                                        {office.name}
+                                        {room.name}
                                       </SelectItem>
                                     ))}
                                 </SelectContent>
@@ -673,7 +667,6 @@ export default function ViewTenant() {
                         append({
                           buildingId: "",
                           roomId: "",
-                          officeId: "",
                         });
                       }}
                     >
@@ -953,9 +946,7 @@ export default function ViewTenant() {
               </div>
 
               <div className="flex gap-2 items-center">
-                <Link
-                  href={`/dashboard/leases/view?tenantId=${tenant?.id}`}
-                >
+                <Link href={`/dashboard/leases/view?tenantId=${tenant?.id}`}>
                   <Button>Add Lease Agreement</Button>
                 </Link>
               </div>

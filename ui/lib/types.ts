@@ -16,30 +16,22 @@ export type Building = {
 
 export type Room = {
 	id: number;
-	number: string;
-	floorNumber: number;
+	name: string;
+	floorNumber: string;
 	buildingId?: number;
 	building?: Building;
-	partitions: Partition[]
-}
-
-export type Partition = {
-	id: number;
-	name: string;
-	roomId: number;
-	buildingId: number;
 	occupied: boolean;
-	sizeInSquareMeters: number;
-	room: Room;
+	sizeInSquareMeters?: number;
 }
 
 
 export type Tenant = {
 	id: number;
 	name: string;
-	phone: string;
-	address: string;
-	tinNumber: string;
+	phone?: string;
+	address?: string;
+	tinNumber?: string;
+	isShareholder?: boolean;
 	leases?: Lease[];
 }
 
@@ -48,7 +40,7 @@ export type Lease = {
 	startDate: Date;
 	endDate: Date;
 	tenantId: number;
-	partitionIds: number[];
+	roomsIds: number[];
 	paymentType: "PREPAID" | "POSTPAID";
 	paymentAmountPerMonth: {
 			base: number;

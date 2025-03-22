@@ -10,7 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { BuildingIcon, HouseIcon, LucideUsers, MilestoneIcon, PanelsLeftRightIcon, UserIcon } from "lucide-react";
+import { BuildingIcon, HouseIcon, LucideUsers, MilestoneIcon, UserIcon, BellIcon, ChartBarIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -26,12 +26,6 @@ export const links = [
     title: 'Rooms',
     icon: <HouseIcon />,
     selector: 'rooms',
-  },
-  {
-    href: '/dashboard/offices',
-    title: 'Offices',
-    icon: <PanelsLeftRightIcon />,
-    selector: 'offices',
   },
   {
     href: '/dashboard/tenants',
@@ -51,6 +45,18 @@ export const links = [
     icon: <MilestoneIcon />,
     selector: 'banks',
   },
+  {
+    href: '/dashboard/notification',
+    title: 'Notification',
+    icon: <BellIcon />,
+    selector: 'notification',
+  },
+  {
+    href: '/dashboard/report',
+    title: 'Report',
+    icon: <ChartBarIcon />,
+    selector: 'report',
+  }
 ]
 
 export default function AppSidebar() {
@@ -79,7 +85,7 @@ export default function AppSidebar() {
                     <Link
                       href={'/dashboard'}
                       className="flex gap-4 items-center my-1 p-2 h-[40px] text-gray-900/50
-		                    data-[active=true]:bg-primary data-[active=true]:text-white"
+		                    data-[active=true]:bg-gray-800 data-[active=true]:text-white"
                     >
                       {<HouseIcon />}
                       <span>Home</span>
@@ -93,7 +99,7 @@ export default function AppSidebar() {
                     <Link
                       href={item.href}
                       className="flex gap-4 items-center my-1 p-2 h-[40px] text-gray-900/50
-		                    data-[active=true]:bg-primary data-[active=true]:text-white"
+		                    data-[active=true]:bg-gray-800 data-[active=true]:text-white"
                     >
                       {item.icon}
                       <span>{item.title}</span>
