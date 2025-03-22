@@ -18,55 +18,57 @@ export class Lease {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
+    @Column({ nullable: true })
     startDate: Date;
 
-    @Column()
+    @Column({ nullable: true })
     endDate: Date;
 
-    @Column()
+    @Column({ nullable: true })
     tenantId: number;
 
-    @Column("simple-array")
-    partitionIds: number[];
+    @Column("simple-array", { nullable: true })
+    roomIds: number[];
 
     @Column({
         type: "enum",
         enum: PaymentType,
-        default: PaymentType.PREPAID
+        default: PaymentType.PREPAID,
+        nullable: true
     })
     paymentType: PaymentType;
 
-    @Column("json")
+    @Column("json", { nullable: true })
     paymentAmountPerMonth: {
         base: number;
         utility: number;
         [key: string]: number;
     };
 
-    @Column("decimal")
+    @Column("decimal", { nullable: true })
     deposit: number;
 
-    @Column()
+    @Column({ nullable: true })
     paymentIntervalInMonths: number;
 
     @Column("json", { nullable: true })
-    initialPayment?: {
+    initialPayment: {
         amount: number;
         paymentDate: Date;
     };
 
-    @Column("decimal")
+    @Column("decimal", { nullable: true })
     lateFee: number;
 
     @Column({
         type: "enum",
         enum: LateFeeType,
-        default: LateFeeType.PERCENTAGE
+        default: LateFeeType.PERCENTAGE,
+        nullable: true
     })
     lateFeeType: LateFeeType;
 
-    @Column()
+    @Column({ nullable: true })
     lateFeeGracePeriodInDays: number;
 
     @Column("json", { nullable: true })
@@ -75,7 +77,7 @@ export class Lease {
         path: string
     }[];
 
-    @Column()
+    @Column({ nullable: true })
     active: boolean;
 
     @ManyToOne(() => Tenant, tenant => tenant.leases)

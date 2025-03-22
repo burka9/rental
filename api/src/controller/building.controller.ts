@@ -4,19 +4,17 @@ import { Building } from "../entities/Building.entity";
 export const BuildingRepository = Database.getRepository(Building)
 
 export async function getBuilding(id?: number) {
-	const relations = {
-		rooms: {
-			partitions: true
-		}
-	}
-
 	const building = id 
 		? await BuildingRepository.findOne({ 
 			where: { id },
-			relations 
+			relations: {
+				rooms: true
+			}
 		}) 
 		: await BuildingRepository.find({
-			relations
+			relations: {
+				rooms: true
+			}
 		})
 
 	return building

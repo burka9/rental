@@ -2,7 +2,11 @@ node_modules/
 dist/
 .env
 .env.local
-
+env/
+data/
 
 src/test/
 uploads/agreements/
+
+import.ipynb
+import_data.ts

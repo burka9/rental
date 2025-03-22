@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
 import { Lease } from "./Lease.entity";
+import { Notification } from "./Notification.entity";
 
 @Entity("tenants")
 export class Tenant {
@@ -9,15 +10,21 @@ export class Tenant {
     @Column()
     name: string;
 
-    @Column({ unique: true })
+    @Column({ nullable: true })
     phone: string;
 
-    @Column()
+    @Column({ nullable: true })
     address: string;
 
-    @Column()
+    @Column({ nullable: true })
     tinNumber: string;
+    
+    @Column()
+    isShareholder: boolean;
     
     @OneToMany(() => Lease, lease => lease.tenant)
     leases: Lease[];
+
+    @OneToMany(() => Notification, notification => notification.tenant)
+    notifications: Notification[];
 } 

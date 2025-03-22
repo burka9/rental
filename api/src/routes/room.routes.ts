@@ -1,7 +1,6 @@
 import { Router } from "express"
 import { createRoom, deleteRoom, getRoom, updateRoom } from "../controller/room.controller"
 import { Room } from "../entities/Room.entity"
-import { getPartitionByRoomId } from "../controller/partition.controller"
 export default function(): Router {
 	const router = Router()
 
@@ -22,16 +21,6 @@ export default function(): Router {
 			success: true,
 			message: "Room fetched successfully",
 			data: room
-		})
-	})
-
-	router.get("/:id/partitions", async (req, res) => {
-		const partitions = await getPartitionByRoomId(Number(req.params.id))
-
-		res.json({
-			success: true,
-			message: "Partitions fetched successfully",
-			data: partitions
 		})
 	})
 

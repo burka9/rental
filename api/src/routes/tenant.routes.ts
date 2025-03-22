@@ -3,8 +3,9 @@ import multer from "multer";
 import path from "path";
 import { createTenant, deleteTenant, getTenant, getTenantByPhone, updateTenant } from "../controller/tenant.controller";
 import { createLease, updateLease } from "../controller/lease.controller";
-import { getPartitions, updatePartition } from "../controller/partition.controller";
 import { PaymentType } from "../entities/Lease.entity";
+import { getRoom, getRooms, updateRoom } from "../controller/room.controller";
+
 // Configure multer for file upload
 const storage = multer.diskStorage({
 	destination: function (req: any, file: any, cb: any) {
@@ -19,12 +20,13 @@ const storage = multer.diskStorage({
 const upload = multer({
 	storage: storage,
 	fileFilter: (req: any, file: any, cb: any) => {
-		// Accept only pdf files
-		if (file.mimetype === "application/pdf") {
+		// Accept only pdf files and images
+		if (file.mimetype === "application/pdf" || 
+			file.mimetype.startsWith("image/")) {
 			cb(null, true);
 		} else {
 			cb(null, false);
-			return cb(new Error("Only PDF files are allowed!"));
+			return cb(new Error("Only PDF and image files are allowed!"));
 		}
 	},
 	limits: {
@@ -72,25 +74,26 @@ export default function(): Router {
 			phone: body.phone,
 			address: body.address,
 			tinNumber: body.tinNumber,
+			isShareholder: body.isShareholder,
 			leases: []
 		})
 
 		// get the partition ids from the body
-		const partitionIds = JSON.parse(body.offices).map((office: any) => office.officeId)
+		const roomIds = JSON.parse(body.rooms).map((room: any) => room.id)
 
-		// check if the selected partitions are occupied
-		const selectedPartitions = await getPartitions(partitionIds)
-		if (selectedPartitions.some((partition: any) => partition.occupied)) {
+		// check if the selected rooms are occupied
+		const selectedRooms = await getRooms(roomIds)
+		if (selectedRooms.some((room: any) => room.occupied)) {
 			return res.status(400).json({
 				success: false,
-				message: "Selected partitions are not available"
+				message: "Selected rooms are not available"
 			})
 		}
-
+		
 		// create a lease object with the body
 		const lease = await createLease({
 			tenant: tenant,
-			partitionIds: partitionIds,
+			roomIds: roomIds,
 			startDate: body.startDate,
 			endDate: body.endDate,
 			paymentIntervalInMonths: body.paymentIntervalInMonths,
@@ -118,12 +121,10 @@ export default function(): Router {
 			})
 		}
 
-		// update the partitions to be occupied
-		await Promise.all(
-      selectedPartitions.map(partition =>
-        updatePartition(partition.id, { occupied: true })
-      )
-    );
+		// update the rooms to be occupied
+		for await (const room of selectedRooms) {
+			await updateRoom(room.id, { occupied: true })
+		}
 
 		// update the tenant with the lease id
 		// await updateTenant(tenant.id, { leases: [lease] })

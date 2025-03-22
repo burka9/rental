@@ -64,7 +64,7 @@ export async function updateLease(id: number, lease: Partial<Lease>) {
 
     // Don't allow updating certain fields after creation
     delete lease.tenantId
-    delete lease.partitionIds
+    delete lease.roomIds
 
     await LeaseRepository.update(id, lease)
     return await LeaseRepository.findOne({

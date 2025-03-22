@@ -1,17 +1,16 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
 import { Building } from "./Building.entity";
-import { Partition } from "./Partition.entity";
 
 @Entity("rooms")
 export class Room {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
-    number: string;
+    @Column({ unique: true })
+    name: string;
 
     @Column()
-    floorNumber: number;
+    floorNumber: string;
 
     @Column()
     buildingId: number;
@@ -19,9 +18,9 @@ export class Room {
     @ManyToOne(() => Building, building => building.rooms)
     building: Building;
 
-    @OneToMany(() => Partition, partition => partition.room, {
-        cascade: true,
-        onDelete: 'CASCADE'
-    })
-    partitions: Partition[];
+    @Column()
+    occupied: boolean;
+
+    @Column("float", { nullable: true })
+    sizeInSquareMeters: number;
 } 

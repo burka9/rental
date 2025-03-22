@@ -1,7 +1,6 @@
 import { Router } from "express";
 import buildingRoutes from "./building.routes";
 import roomRoutes from "./room.routes";
-import partitionRoutes from "./partition.routes";
 import tenantRoutes from "./tenant.routes";
 import bankRoutes from "./bank.routes";
 import leaseRoutes from "./lease.routes";
@@ -18,7 +17,6 @@ export default function(): Router {
 
 	router.use("/building", buildingRoutes())
 	router.use("/room", roomRoutes())
-	router.use("/partition", partitionRoutes())
 	router.use("/bank", bankRoutes())
 
 	router.use("/tenant", tenantRoutes())
