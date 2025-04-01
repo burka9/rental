@@ -2,6 +2,7 @@ import { addMonths, isAfter, isBefore } from "date-fns"
 import { Database } from "../db"
 import { Lease } from "../entities/Lease.entity"
 import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
+import { toEthiopian, toGregorian } from "../lib/date-converter"
 
 export const LeaseRepository = Database.getRepository(Lease)
 export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
@@ -91,82 +92,84 @@ export async function deleteLease(id: number) {
 }
 
 function generatePaymentSchedule(lease: Lease): Partial<PaymentSchedule>[] {
-	const { startDate, endDate, paymentIntervalInMonths: interval, paymentAmountPerMonth, initialPayment } = lease;
-    const paymentIntervalInMonths = Number(interval)
-	const schedule: Partial<PaymentSchedule>[] = [];
-
-	const leaseEndDate = new Date(endDate);
-
-	// Calculate total amount per interval
-	const totalAmountPerMonth = Object.values(paymentAmountPerMonth).reduce((sum, amount) => sum + amount, 0);
-	const intervalAmount = totalAmountPerMonth * paymentIntervalInMonths;
-
-	let paymentDate = new Date(startDate); // Payment is made at the start of each period
-	const leaseId = lease.id;
-    let payableAmount = initialPayment?.amount ?? 0;
-
-    console.log('payment date -- \t lease end date -- total amount per month -- interval amount -- payment interval in months')
-    console.log(paymentDate.toDateString(), '\t', leaseEndDate.toDateString(), '\t', totalAmountPerMonth, '\t\t\t', intervalAmount, '\t\t\t', paymentIntervalInMonths)
-    console.log('--------------------------------')
-
-	while (!isAfter(paymentDate, leaseEndDate)) {
-        console.log('payment date:', paymentDate.toDateString())
-        // Check if this is the final payment and needs proration
-        // const nextPaymentDate = new Date(paymentDate);
-        // nextPaymentDate.setMonth(nextPaymentDate.getMonth() + paymentIntervalInMonths);
-        const nextPaymentDate = addMonths(paymentDate, paymentIntervalInMonths)
-
-        console.log('next payment date:', nextPaymentDate.toDateString())
-        console.log('amount:', intervalAmount)
-        console.log('payable amount:', payableAmount)
-
-        let paid = 0
-
-        if (payableAmount > 0) {
-            if (payableAmount >= intervalAmount) {
-                paid = intervalAmount
-                payableAmount -= intervalAmount
-            } else {
-                paid = payableAmount
-                payableAmount = 0
-            }
+    const { startDate, endDate, paymentIntervalInMonths: interval, paymentAmountPerMonth, initialPayment } = lease;
+    const paymentIntervalInMonths = Number(interval);
+    const schedule: Partial<PaymentSchedule>[] = [];
+  
+    // Convert Gregorian startDate and endDate to Ethiopian
+    const ethStart = toEthiopian([startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()]);
+    const ethEnd = toEthiopian([endDate.getFullYear(), endDate.getMonth() + 1, endDate.getDate()]);
+  
+    let currentEthDate: [number, number, number] = [...ethStart];
+    let paymentDateGregorian = new Date(toGregorian(currentEthDate).join('-'));
+    const leaseEndGregorian = new Date(toGregorian(ethEnd).join('-'));
+  
+    const totalAmountPerMonth = Object.values(paymentAmountPerMonth).reduce((sum, amount) => Number(sum) + (Number(amount) || 0), 0);
+    const intervalAmount = totalAmountPerMonth * paymentIntervalInMonths;
+  
+    let payableAmount: number = Number(initialPayment?.amount ?? 0);
+  
+    while (!isAfter(paymentDateGregorian, leaseEndGregorian)) {
+        const currentEth = toEthiopian([
+            paymentDateGregorian.getFullYear(),
+            paymentDateGregorian.getMonth() + 1,
+            paymentDateGregorian.getDate(),
+        ]);
+  
+        if (currentEth[1] === 13) {
+            currentEthDate = [currentEth[0] + 1, 1, currentEth[2] || 1];
+            paymentDateGregorian = new Date(toGregorian(currentEthDate).join('-'));
+            continue;
         }
-        
-        if (!isBefore(nextPaymentDate, leaseEndDate)) {
-            const remainingMonths = (leaseEndDate.getFullYear() - paymentDate.getFullYear()) * 12 
-                                                        + (leaseEndDate.getMonth() - paymentDate.getMonth());
-
-            const finalAmount = totalAmountPerMonth * remainingMonths;
+  
+        let nextEthMonth = currentEth[1] + paymentIntervalInMonths;
+        let nextEthYear = currentEth[0];
+        while (nextEthMonth > 12) {
+            nextEthMonth -= 12;
+            nextEthYear += 1;
+        }
+        const nextEthDate: [number, number, number] = [nextEthYear, nextEthMonth, currentEth[2] || 1];
+        const nextPaymentDateGregorian = new Date(toGregorian(nextEthDate).join('-'));
+  
+        let paid = 0;
+        if (payableAmount > 0) {
+            paid = Math.min(payableAmount, intervalAmount);
+            payableAmount -= paid;
+        }
+  
+        if (!isBefore(nextPaymentDateGregorian, leaseEndGregorian)) {
+            let ethMonthsRemaining = (ethEnd[0] - currentEth[0]) * 12 + (ethEnd[1] - currentEth[1]);
+            if (ethEnd[2] > currentEth[2]) ethMonthsRemaining += 1; // Fix for missing last month
+            if (ethEnd[1] === 13) ethMonthsRemaining -= 1;
+  
+            const finalAmount = totalAmountPerMonth * Math.max(ethMonthsRemaining, 1);
             schedule.push({
-                dueDate: paymentDate,
+                dueDate: new Date(paymentDateGregorian),
                 payableAmount: finalAmount,
-                leaseId,
+                leaseId: lease.id,
                 lease,
                 paidAmount: paid,
-                paymentDate: paid !== 0 ? new Date(paymentDate) : undefined
+                paymentDate: paid !== 0 ? new Date(paymentDateGregorian) : undefined,
             });
             break;
         }
-
-        
+  
         schedule.push({
-            dueDate: new Date(paymentDate),
+            dueDate: new Date(paymentDateGregorian),
             payableAmount: intervalAmount,
-            leaseId,
+            leaseId: lease.id,
             lease,
             paidAmount: paid,
-            paymentDate: paid !== 0 ? new Date(paymentDate) : undefined
+            paymentDate: paid !== 0 ? new Date(paymentDateGregorian) : undefined,
         });
-
-        // Move to the next payment period
-        paymentDate = nextPaymentDate;
-        console.log('\t-----')
-	}
-
-    console.log(schedule.length)
-
-	return schedule;
+  
+        currentEthDate = nextEthDate;
+        paymentDateGregorian = nextPaymentDateGregorian;
+    }
+  
+    return schedule;
 }
+
 
 export async function getLeasesByTenant(tenantId: number) {
     return await LeaseRepository.find({

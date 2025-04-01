@@ -21,6 +21,9 @@ export class Room {
     @Column()
     occupied: boolean;
 
+    @Column({ nullable: true })
+    purpose: string;
+
     @Column("float", { nullable: true })
     sizeInSquareMeters: number;
 } 

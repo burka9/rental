@@ -3,6 +3,7 @@
 import { PaymentSchedule } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
+import { ethiopianMonths, toEthiopian } from "@/lib/date-converter"
 
 export const columns: ColumnDef<PaymentSchedule>[] = [
   {
@@ -15,9 +16,11 @@ export const columns: ColumnDef<PaymentSchedule>[] = [
       const payableAmount = Number(row.original.payableAmount || 0)
       const isPastDue = dueDate < today && paidAmount < payableAmount
       
+      const [year, month, date] = toEthiopian(dueDate.getFullYear(), dueDate.getMonth() + 1, dueDate.getDate())
+      
       return (
         <div className={isPastDue ? "text-red-600 font-medium" : ""}>
-          {dueDate.toLocaleDateString()}
+          {year} {ethiopianMonths[month - 1]} {date+1}
         </div>
       )
     }
@@ -67,7 +70,7 @@ export const columns: ColumnDef<PaymentSchedule>[] = [
       const isPartial = paidAmount > 0 && paidAmount < payableAmount
       
       return (
-        <div className="flex gap-1">
+        <div className="flex items-center gap-1">
           {isPaid ? (
             <Badge variant="default" className="bg-green-600">PAID</Badge>
           ) : (

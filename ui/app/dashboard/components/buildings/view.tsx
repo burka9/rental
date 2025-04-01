@@ -25,6 +25,8 @@ const formSchema = z.object({
 	name: z.string().min(1, "Name is required"),
 	address: z.string(),
 	noOfFloors: z.coerce.number().min(1, "Number of floors is required"),
+	noOfBasements: z.coerce.number().min(0, "Number of basements is required"),
+	purpose: z.string().optional(),
 })
 
 export default function ViewBuilding() {
@@ -39,7 +41,8 @@ export default function ViewBuilding() {
 		defaultValues: {
 			name: building?.name ?? "",
 			address: building?.address ?? "",
-			noOfFloors: building?.noOfFloors ?? 0,
+			noOfFloors: building?.noOfFloors,
+			noOfBasements: building?.noOfBasements
 		}
 	})
 
@@ -86,6 +89,7 @@ export default function ViewBuilding() {
 							setBuilding(() => ({
 								id: building.id,
 								rooms: building.rooms,
+								floors: building.floors,
 								...form.getValues()
 							}))
 							toast.success("Building updated successfully")
@@ -128,6 +132,7 @@ export default function ViewBuilding() {
 					router.push(`/dashboard/buildings`)
 				} else {
 					setBuilding(data);
+					console.log(data)
 				}
       })
       .catch((error) => {
@@ -141,7 +146,8 @@ export default function ViewBuilding() {
 		form.reset({
 			name: building.name,
 			address: building.address,
-			noOfFloors: building.noOfFloors
+			noOfFloors: building.noOfFloors,
+			noOfBasements: building.noOfBasements
 		})
 	}, [building, form])
 	
@@ -176,6 +182,7 @@ export default function ViewBuilding() {
 								name: building?.name ?? "",
 								address: building?.address ?? "",
 								noOfFloors: Number(building?.noOfFloors ?? ""),
+								noOfBasements: Number(building?.noOfBasements ?? ""),
 							});
 						} else {
 							setOpenDeleteDialog(true);
@@ -204,7 +211,7 @@ export default function ViewBuilding() {
 				<Form {...form}>
 					<form
 						onSubmit={form.handleSubmit(handleSubmit)}
-						className="flex flex-col gap-2 max-w-md w-full mx-auto"
+						className="grid grid-cols-2 gap-2 max-w-4xl w-full mx-auto"
 					>
 						<FormField
 							control={form.control}
@@ -254,6 +261,25 @@ export default function ViewBuilding() {
 										<Input
 											{...field}
 											placeholder="Number of Floors"
+											readOnly={!creating && !editing}
+											className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
+										/>
+									</FormControl>
+									<FormMessage />
+								</FormItem>
+							)}
+						/>
+
+						<FormField
+							control={form.control}
+							name="noOfBasements"
+							render={({ field }) => (
+								<FormItem>
+									<FormLabel>Number of Basements</FormLabel>
+									<FormControl>
+										<Input
+											{...field}
+											placeholder="Number of Basements"
 											readOnly={!creating && !editing}
 											className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
 										/>

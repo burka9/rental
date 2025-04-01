@@ -3,15 +3,19 @@ import { axios } from "../axios"
 import { Bank, Building, Room } from "../types"
 import { useStore } from "."
 
+type SuperBuilding = Building & {
+	tenantCount: number
+}
+
 type StoreState = {
-	buildings: Building[]
+	buildings: SuperBuilding[]
 	rooms: Room[]
 	banks: Bank[]
 }
 
 type StoreAction = {
-	fetchBuildings: () => Promise<Building[]>
-	fetchBuilding: (id: number) => Promise<Building | null>
+	fetchBuildings: () => Promise<SuperBuilding[]>
+	fetchBuilding: (id: number) => Promise<SuperBuilding | null>
 	createBuilding: (building: Partial<Building>) => Promise<boolean>
 	updateBuilding: (building: Partial<Building>) => Promise<Building | null>
 	deleteBuilding: (id: number) => Promise<boolean>
@@ -45,9 +49,9 @@ export const usePropertyStore = create<Store>(set => ({
 				}
 			})
 
-			set({ buildings: res.data.data as Building[] })
+			set({ buildings: res.data.data as SuperBuilding[] })
 
-			return res.data.data as Building[]
+			return res.data.data as SuperBuilding[]
 		} catch(err) {
 			console.log(err)
 			return []
@@ -63,7 +67,7 @@ export const usePropertyStore = create<Store>(set => ({
 				}
 			})
 
-			return res.data.data as Building
+			return res.data.data as SuperBuilding
 		} catch(err) {
 			console.log(err)
 			return null

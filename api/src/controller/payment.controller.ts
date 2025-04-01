@@ -1,18 +1,32 @@
 import { Database } from "../db"
 import { Payment } from "../entities/Payment.entity"
+import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
+import { LessThan } from "typeorm"
 
 export const PaymentRepository = Database.getRepository(Payment)
+export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
 
 export async function getPayment(id?: number) {
     if (id) {
-        return await PaymentRepository.findOne({
+        return PaymentRepository.findOne({
             where: { id },
             relations: ['lease', 'bank']
         })
     }
-    return await PaymentRepository.find({
+    return PaymentRepository.find({
         relations: ['lease', 'bank']
     })
+}
+
+export async function getOverduePaymentSchedule() {
+    const schedules = await PaymentScheduleRepository.find({
+        where: {
+            dueDate: LessThan(new Date())
+        },
+        relations: ['lease']
+    })
+
+    return schedules
 }
 
 export async function createPayment(payment: Partial<Payment>) {

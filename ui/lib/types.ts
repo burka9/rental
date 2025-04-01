@@ -11,6 +11,8 @@ export type Building = {
 	name: string;
 	address: string;
 	noOfFloors: number;
+	noOfBasements: number;
+	floors: { order: number; name: string }[]
 	rooms: Room[];
 }
 
@@ -21,6 +23,7 @@ export type Room = {
 	buildingId?: number;
 	building?: Building;
 	occupied: boolean;
+	purpose?: string;
 	sizeInSquareMeters?: number;
 }
 
@@ -80,6 +83,7 @@ export type Payment = {
 	paymentDate: Date;
 	paymentMethod: "BANK_TRANSFER";
 	bankId: number;
+	referenceNumber: number;
 	notes: string;
 	verified: boolean;
 	verificationDate: Date;
@@ -96,4 +100,19 @@ export type Bank = {
 	accountNumber: string;
 	ownerName: string;
 	payments?: Payment;
+}
+
+export type BasicReport = {
+	totalRooms: number
+	vacantRooms: number
+	totalTenants: number
+	overduePayments: {
+		totalTenants: number
+		totalAmount: number
+	}
+	upcomingPayment: {
+		tenantName: string
+		dueDate: Date
+		paymentAmount: number
+	}[]
 }

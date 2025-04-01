@@ -41,22 +41,42 @@ import { axios } from "@/lib/axios";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
+// Define month names as a const tuple for Zod
+const monthNames = [
+  "መስከረም", // Meskerem (Month 1)
+  "ጥቅምት", // Tikimt (Month 2)
+  "ህዳር", // Hidar (Month 3)
+  "ታህሳስ", // Tahsas (Month 4)
+  "ጥር", // Tir (Month 5)
+  "የካቲት", // Yekatit (Month 6)
+  "መጋቢት", // Megabit (Month 7)
+  "ሚያዝያ", // Miazia (Month 8)
+  "ግንቦት", // Ginbot (Month 9)
+  "ሰኔ", // Sene (Month 10)
+  "ሐምሌ", // Hamle (Month 11)
+  "ነሐሴ", // Nehase (Month 12)
+  "ጳጉሜ", // Pagumē (Month 13)
+] as const;
+
 const roomForm = z.object({
   buildingId: z.string().optional(),
   roomId: z.string().optional(),
 });
 
+const dateForm = z.object({
+  day: z.coerce.number().optional(),
+  month: z.coerce.number().optional(),
+  year: z.coerce.number().optional(),
+});
+
 const formSchema = z.object({
-  // tenant info
   name: z.string(),
   phone: z.string().optional(),
   address: z.string().optional(),
   tinNumber: z.string().optional(),
   isShareholder: z.boolean().optional(),
-
-  // lease info
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
+  startDate: z.array(dateForm).optional(),
+  endDate: z.array(dateForm).optional(),
   agreementFile: z
     .instanceof(File)
     .refine(
@@ -65,12 +85,11 @@ const formSchema = z.object({
       "Only JPEG, PNG, or PDF files are allowed"
     )
     .refine(
-      (file) => file.size <= 10 * 1024 * 1024, // 10MB limit
+      (file) => file.size <= 10 * 1024 * 1024,
       "File size must be less than 10MB"
     )
     .optional(),
-  // paymentType: z.string(),
-  paymentIntervalInMonths: z.string(), // it should be a number
+  paymentIntervalInMonths: z.string(),
   paymentAmountPerMonth: z.object({
     base: z.coerce.number().min(0),
     utility: z.coerce.number().min(0).optional(),
@@ -90,7 +109,6 @@ export default function ViewTenant() {
   const router = useRouter();
   const { fetchTenants, fetchTenant, updateTenant, deleteTenant } =
     useTenantStore();
-
   const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
 
   useEffect(() => {
@@ -100,6 +118,7 @@ export default function ViewTenant() {
   useEffect(() => {
     fetchBuildings();
   }, [fetchBuildings]);
+
   useEffect(() => {
     fetchRooms();
   }, [fetchRooms]);
@@ -108,23 +127,16 @@ export default function ViewTenant() {
     mode: "onChange",
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: tenant?.name ?? "",
-      phone: tenant?.phone ?? "",
-      address: tenant?.address ?? "",
-      tinNumber: tenant?.tinNumber ?? "",
-      isShareholder: tenant?.isShareholder ?? false,
-      // startDate: tenant?.leases[0]?.startDate ?? "",
-      // endDate: tenant?.leases[0]?.endDate ?? "",
-      // paymentType: tenant?.leases[0]?.paymentType ?? "",
-      // paymentIntervalInMonths: tenant?.leases[0]?.paymentIntervalInMonths ?? 1,
-      // paymentAmountPerMonth: {
-      // 	base: tenant?.leases[0]?.paymentAmountPerMonth?.base ?? 0,
-      // 	utility: tenant?.leases[0]?.paymentAmountPerMonth?.utility ?? 0,
-      // },
-      // deposit: tenant?.leases[0]?.deposit ?? 0,
-      // lateFee: tenant?.leases[0]?.lateFee ?? 0,
-      // lateFeeType: tenant?.leases[0]?.lateFeeType ?? "",
+      name: "",
+      phone: "",
+      address: "",
+      tinNumber: "",
+      isShareholder: false,
+      startDate: [{ day: undefined, month: undefined, year: undefined }],
+      endDate: [{ day: undefined, month: undefined, year: undefined }],
       rooms: [{}],
+      paymentIntervalInMonths: "1",
+      paymentAmountPerMonth: { base: 0 },
     },
   });
 
@@ -133,135 +145,97 @@ export default function ViewTenant() {
     name: "rooms",
   });
 
+  const startDate = useFieldArray({
+    control: form.control,
+    name: "startDate",
+  });
+
+  const endDate = useFieldArray({
+    control: form.control,
+    name: "endDate",
+  });
+
   const searchParams = useSearchParams();
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     const formData = new FormData();
-
     formData.append("name", values.name);
-
-    if (values.phone) {
-      formData.append("phone", values.phone);
-    }
-    if (values.address) {
-      formData.append("address", values.address);
-    }
-    if (values.tinNumber) {
-      formData.append("tinNumber", values.tinNumber);
-    }
-
-    if (values.startDate) {
-      formData.append("startDate", values.startDate.toISOString());
-    }
-    if (values.endDate) {
-      formData.append("endDate", values.endDate.toISOString());
-    }
-    if (values.agreementFile) {
+    if (values.phone) formData.append("phone", values.phone);
+    if (values.address) formData.append("address", values.address);
+    if (values.tinNumber) formData.append("tinNumber", values.tinNumber);
+    if (values.startDate)
+      formData.append("startDate", JSON.stringify(values.startDate));
+    if (values.endDate)
+      formData.append("endDate", JSON.stringify(values.endDate));
+    if (values.agreementFile)
       formData.append("agreementFile", values.agreementFile);
-    }
-
     formData.append(
       "paymentAmountPerMonth",
       JSON.stringify(values.paymentAmountPerMonth)
     );
     formData.append("rooms", JSON.stringify(values.rooms));
-
-    if (values.deposit) {
-      formData.append("deposit", values.deposit.toString());
-    }
-    if (values.lateFee) {
-      formData.append("lateFee", values.lateFee.toString());
-    }
-    if (values.lateFeeType) {
-      formData.append("lateFeeType", values.lateFeeType);
-    }
-    if (values.paymentIntervalInMonths) {
+    if (values.deposit) formData.append("deposit", values.deposit.toString());
+    if (values.lateFee) formData.append("lateFee", values.lateFee.toString());
+    if (values.lateFeeType) formData.append("lateFeeType", values.lateFeeType);
+    if (values.paymentIntervalInMonths)
       formData.append(
         "paymentIntervalInMonths",
         values.paymentIntervalInMonths
       );
-    }
-    if (values.initialPaymentAmount) {
+    if (values.initialPaymentAmount)
       formData.append(
         "initialPaymentAmount",
         values.initialPaymentAmount.toString()
       );
-    }
-    if (values.initialPaymentDate) {
+    if (values.initialPaymentDate)
       formData.append(
         "initialPaymentDate",
         values.initialPaymentDate.toISOString()
       );
-    }
-
     formData.append("isShareholder", values.isShareholder ? "true" : "false");
 
     form
       .trigger()
       .then((data) => {
         if (!data) throw new Error();
-
         return axios.post("/tenant", formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
         });
       })
       .then((response) => {
-        // pass is a 2xx response status code
-        const pass = response.status >= 200 && response.status < 300;
-
-        if (pass) {
+        if (response.status >= 200 && response.status < 300) {
           toast.success("Tenant created successfully");
           router.push("/dashboard/tenants");
         }
       })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .catch((error: any) => {
+      .catch((error) => {
         console.error(error);
-        const msg = error.response?.data?.message ?? "Failed to create tenant";
-
-        toast.error(msg);
+        toast.error(error.response?.data?.message ?? "Failed to create tenant");
       });
   };
 
-  // const { user } = useStore();
-
   const buttonClicked = () => {
     if (creating) {
-      console.log(form.getValues());
-
       form
         .trigger()
         .then((data) => {
+          console.log(data)
           if (!data) throw new Error();
-
           handleSubmit(form.getValues());
         })
-        .catch((error) => {
-          console.log(error);
-        });
+        .catch((error) => console.log(error));
     } else if (editing) {
       if (!tenant) return;
-
       form
         .trigger()
         .then((data) => {
           if (!data) return;
-
-          updateTenant({
-            ...form.getValues(),
-            id: tenant.id,
-          }).then((data) => {
+          updateTenant({ ...form.getValues(), id: tenant.id }).then((data) => {
             if (data == null) {
               toast.error("Failed to update tenant");
               return;
             }
-
-            setTenant(() => ({
-              id: tenant.id,
-              ...form.getValues(),
-            }));
+            setTenant(() => ({ id: tenant.id, ...form.getValues() }));
             toast.success("Tenant updated successfully");
             setEditing(() => false);
           });
@@ -280,70 +254,69 @@ export default function ViewTenant() {
   const handleDelete = () => {
     deleteTenant(tenant?.id ?? 0)
       .then((data) => {
-        if (data) {
+        if (data)
           router.push(`/dashboard/tenants?message=Tenant deleted successfully`);
-        } else {
-          console.log("error");
-        }
+        else console.log("error");
       })
-      .catch((error) => {
-        console.log(error);
-      });
+      .catch((error) => console.log(error));
   };
 
-  // const [floorFilter, setFloorFilter] = useState<string>("all")
-
-  // const floorFilterChange = (value: string) => {
-  // 	setFloorFilter(value)
-  // }
-
-  const leases = useMemo(() => {
-    if (!tenant) return [];
-
-    // if (floorFilter === "all") return room.partitions
-
-    // return room.partitions.filter(partition => partition.toString() === floorFilter)
-    return tenant.leases ?? [];
-  }, [tenant]);
+  const leases = useMemo(() => tenant?.leases ?? [], [tenant]);
 
   useEffect(() => {
     const id = Number(searchParams.get("id"));
-
     if (!id) return;
-
     fetchTenant(id)
       .then((data) => {
-        if (data == null) {
-          router.push(`/dashboard/tenants`);
-        } else {
-          setTenant(data);
-        }
+        if (data == null) router.push(`/dashboard/tenants`);
+        else setTenant(data);
       })
-      .catch((error) => {
-        console.log(error);
-      });
+      .catch((error) => console.log(error));
   }, [fetchTenant, searchParams, router]);
 
+  // Assuming Tenant type has startDate and endDate as Date or similar
   useEffect(() => {
     if (!tenant) return;
+
+    console.log(tenant.leases)
+    
+    // Convert Date to Ethiopian format if needed (assuming tenant.leases uses Date)
+    const startDate = tenant.leases?.[0]?.startDate
+      ? [
+          {
+            // year: tenant.leases[0].startDate.getFullYear(), // Adjust for Ethiopian year if necessary
+            // month: tenant.leases[0].startDate.getMonth(), // Simplified; adjust for Ethiopian calendar
+            // day: tenant.leases[0].startDate.getDate(),
+          },
+        ]
+      : [{ day: undefined, month: undefined, year: undefined }];
+    const endDate = tenant.leases?.[0]?.endDate
+      ? [
+          {
+            // year: tenant.leases[0].endDate.getFullYear(),
+            // month: tenant.leases[0].endDate.getMonth(),
+            // day: tenant.leases[0].endDate.getDate(),
+          },
+        ]
+      : [{ day: undefined, month: undefined, year: undefined }];
 
     form.reset({
       name: tenant.name,
       phone: tenant.phone,
       address: tenant.address,
       tinNumber: tenant.tinNumber,
-      // startDate: tenant.leases[0]?.startDate ?? "",
-      // endDate: tenant.leases[0]?.endDate ?? "",
-      // paymentType: tenant.leases[0]?.paymentType ?? "",
-      // paymentIntervalInMonths: tenant.leases[0]?.paymentIntervalInMonths ?? 1,
-      // paymentAmountPerMonth: {
-      // 	base: tenant.leases[0]?.paymentAmountPerMonth?.base ?? 0,
-      // 	utility: tenant.leases[0]?.paymentAmountPerMonth?.utility ?? 0,
-      // },
-      // deposit: tenant.leases[0]?.deposit ?? 0,
-      // lateFee: tenant.leases[0]?.lateFee ?? 0,
-      // lateFeeType: tenant.leases[0]?.lateFeeType ?? "",
-      // lateFeeGracePeriodInDays: tenant.leases[0]?.lateFeeGracePeriodInDays ?? 0,
+      isShareholder: tenant.isShareholder,
+      startDate,
+      endDate,
+      paymentIntervalInMonths:
+        tenant.leases?.[0]?.paymentIntervalInMonths?.toString() ?? "1",
+      paymentAmountPerMonth: {
+        base: tenant.leases?.[0]?.paymentAmountPerMonth?.base ?? 0,
+        utility: tenant.leases?.[0]?.paymentAmountPerMonth?.utility ?? 0,
+      },
+      deposit: tenant.leases?.[0]?.deposit ?? 0,
+      lateFee: tenant.leases?.[0]?.lateFee ?? 0,
+      lateFeeType: tenant.leases?.[0]?.lateFeeType ?? "",
     });
   }, [tenant, form]);
 
@@ -352,13 +325,26 @@ export default function ViewTenant() {
     setEditing(searchParams.get("edit") === "true");
   }, [searchParams]);
 
+  const getDaysInMonth = (
+    monthIndex: number | undefined,
+    year: number | undefined
+  ) => {
+    if (!monthIndex || year === undefined) return [];
+    if (monthIndex >= monthNames.length) return [];
+    
+    const month = monthNames[monthIndex];
+    
+    const isPagume = month === "ጳጉሜ";
+    const dayCount = isPagume ? (year % 4 === 3 ? 6 : 5) : 30;
+    return Array.from({ length: dayCount }, (_, idx) => idx + 1);
+  };
+
   return !creating && !tenant ? (
     <>Loading</>
   ) : (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center mb-4">
-          {/* back button */}
           <Link href="/dashboard/tenants">
             <Button className="mr-2 p-1 px-2" size="sm">
               <ChevronLeftIcon size={3} />
@@ -390,18 +376,27 @@ export default function ViewTenant() {
                   phone: tenant?.phone,
                   address: tenant?.address,
                   tinNumber: tenant?.tinNumber,
-                  // startDate: tenant?.leases[0]?.startDate ?? "",
-                  // endDate: tenant?.leases[0]?.endDate ?? "",
-                  // paymentType: tenant?.leases[0]?.paymentType ?? "",
-                  // paymentIntervalInMonths: tenant?.leases[0]?.paymentIntervalInMonths ?? 1,
-                  // paymentAmountPerMonth: {
-                  // 	base: tenant?.leases[0]?.paymentAmountPerMonth?.base ?? 0,
-                  // 	utility: tenant?.leases[0]?.paymentAmountPerMonth?.utility ?? 0,
-                  // },
-                  // deposit: tenant?.leases[0]?.deposit ?? 0,
-                  // lateFee: tenant?.leases[0]?.lateFee ?? 0,
-                  // lateFeeType: tenant?.leases[0]?.lateFeeType ?? "",
-                  // lateFeeGracePeriodInDays: tenant?.leases[0]?.lateFeeGracePeriodInDays ?? 0,
+                  isShareholder: tenant?.isShareholder,
+                  startDate: tenant?.leases?.[0]?.startDate
+                    ? [
+                        {
+                          year: tenant.leases[0].startDate.getFullYear(),
+                          month:
+                            tenant.leases[0].startDate.getMonth(),
+                          day: tenant.leases[0].startDate.getDate(),
+                        },
+                      ]
+                    : [{ day: undefined, month: undefined, year: undefined }],
+                  endDate: tenant?.leases?.[0]?.endDate
+                    ? [
+                        {
+                          year: tenant.leases[0].endDate.getFullYear(),
+                          month:
+                            tenant.leases[0].endDate.getMonth(),
+                          day: tenant.leases[0].endDate.getDate(),
+                        },
+                      ]
+                    : [{ day: undefined, month: undefined, year: undefined }],
                 });
               } else {
                 setOpenDeleteDialog(true);
@@ -462,7 +457,6 @@ export default function ViewTenant() {
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="phone"
@@ -485,7 +479,6 @@ export default function ViewTenant() {
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="address"
@@ -508,7 +501,6 @@ export default function ViewTenant() {
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="tinNumber"
@@ -531,7 +523,6 @@ export default function ViewTenant() {
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
                 name="isShareholder"
@@ -548,7 +539,9 @@ export default function ViewTenant() {
                       <FormLabel
                         className={cn(
                           "cursor-pointer",
-                          !creating && !editing ? "opacity-60 cursor-not-allowed" : ""
+                          !creating && !editing
+                            ? "opacity-60 cursor-not-allowed"
+                            : ""
                         )}
                       >
                         Shareholder
@@ -559,7 +552,7 @@ export default function ViewTenant() {
               />
             </div>
 
-            {creating && (
+            {(creating || editing) && (
               <>
                 <Label className="text-xl mt-4">Office Information</Label>
                 <div className="flex flex-col gap-2 mx-8">
@@ -578,7 +571,6 @@ export default function ViewTenant() {
                               <Select
                                 onValueChange={(value) => {
                                   field.onChange(value);
-                                  // Reset room when building changes
                                   form.setValue(`rooms.${index}.roomId`, "");
                                 }}
                                 value={field.value}
@@ -603,7 +595,6 @@ export default function ViewTenant() {
                             </FormItem>
                           )}
                         />
-
                         <FormField
                           control={form.control}
                           name={`rooms.${index}.roomId`}
@@ -611,9 +602,7 @@ export default function ViewTenant() {
                             <FormItem>
                               <FormLabel>Select Room</FormLabel>
                               <Select
-                                onValueChange={(value) => {
-                                  field.onChange(value); // Update the roomId with the selected value
-                                }}
+                                onValueChange={field.onChange}
                                 value={field.value}
                                 disabled={
                                   !form.watch(`rooms.${index}.buildingId`)
@@ -626,6 +615,7 @@ export default function ViewTenant() {
                                 </FormControl>
                                 <SelectContent>
                                   {rooms
+                                    .filter(room => !room.occupied)
                                     .filter(
                                       (room) =>
                                         room.buildingId?.toString() ===
@@ -645,7 +635,6 @@ export default function ViewTenant() {
                             </FormItem>
                           )}
                         />
-
                         {fields.length > 1 && (
                           <div className="flex items-end">
                             <Button
@@ -663,17 +652,13 @@ export default function ViewTenant() {
                   <div className="flex items-center gap-4">
                     <p
                       className="underline text-blue-600 cursor-pointer hover:no-underline"
-                      onClick={() => {
-                        append({
-                          buildingId: "",
-                          roomId: "",
-                        });
-                      }}
+                      onClick={() => append({ buildingId: "", roomId: "" })}
                     >
                       + Add More Offices
                     </p>
                   </div>
                 </div>
+
                 <Label className="text-xl mt-4">
                   Lease Agreement Information
                 </Label>
@@ -685,7 +670,10 @@ export default function ViewTenant() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Payment Interval (Months)</FormLabel>
-                          <Select onValueChange={field.onChange}>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Payment Interval (Month)" />
@@ -761,51 +749,221 @@ export default function ViewTenant() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-5 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="startDate"
-                      render={({ field }) => (
-                        <FormItem>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Start Date */}
+                    <div className="flex flex-col gap-4">
+                      {startDate.fields.map((field, index) => (
+                        <div key={field.id}>
                           <FormLabel>Start Date</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="date"
-                              placeholder="Start Date"
-                              value={
-                                field.value instanceof Date
-                                  ? field.value.toISOString().split("T")[0]
-                                  : field.value
-                              }
+                          <div className="flex items-center gap-4 w-full">
+                            <FormField
+                              control={form.control}
+                              name={`startDate.${index}.year`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value?.toString() ?? ""}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Year" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {Array.from({ length: 50 }).map(
+                                        (_, idx) => {
+                                          const year = 2010 + idx; // Adjust for Ethiopian year if needed
+                                          return (
+                                            <SelectItem
+                                              key={year}
+                                              value={year.toString()}
+                                            >
+                                              {year}
+                                            </SelectItem>
+                                          );
+                                        }
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="endDate"
-                      render={({ field }) => (
-                        <FormItem>
+                            <FormField
+                              control={form.control}
+                              name={`startDate.${index}.month`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value?.toString()}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Month" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {monthNames.map((month, idx) => (
+                                        <SelectItem key={month} value={(idx+1).toString()}>
+                                          {month}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`startDate.${index}.day`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value?.toString() ?? ""}
+                                    disabled={
+                                      !form.watch(`startDate.${index}.month`)
+                                    }
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Day" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {getDaysInMonth(
+                                        form.watch(`startDate.${index}.month`),
+                                        form.watch(`startDate.${index}.year`)
+                                      ).map((day) => (
+                                        <SelectItem
+                                          key={day}
+                                          value={day.toString()}
+                                        >
+                                          {day}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* End Date */}
+                    <div className="flex flex-col gap-4">
+                      {endDate.fields.map((field, index) => (
+                        <div key={field.id}>
                           <FormLabel>End Date</FormLabel>
-                          <FormControl>
-                            <Input
-                              {...field}
-                              type="date"
-                              placeholder="End Date"
-                              value={
-                                field.value instanceof Date
-                                  ? field.value.toISOString().split("T")[0]
-                                  : field.value
-                              }
+                          <div className="flex items-center gap-4 w-full">
+                            <FormField
+                              control={form.control}
+                              name={`endDate.${index}.year`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value?.toString() ?? ""}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Year" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {Array.from({ length: 50 }).map(
+                                        (_, idx) => {
+                                          const year = 2010 + idx;
+                                          return (
+                                            <SelectItem
+                                              key={year}
+                                              value={year.toString()}
+                                            >
+                                              {year}
+                                            </SelectItem>
+                                          );
+                                        }
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
                             />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                            <FormField
+                              control={form.control}
+                              name={`endDate.${index}.month`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value?.toString()}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Month" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {monthNames.map((month, idx) => (
+                                        <SelectItem key={month} value={(idx+1).toString()}>
+                                          {month}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name={`endDate.${index}.day`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    value={field.value?.toString() ?? ""}
+                                    disabled={
+                                      !form.watch(`endDate.${index}.month`)
+                                    }
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Day" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {getDaysInMonth(
+                                        form.watch(`endDate.${index}.month`),
+                                        form.watch(`endDate.${index}.year`)
+                                      ).map((day) => (
+                                        <SelectItem
+                                          key={day}
+                                          value={day.toString()}
+                                        >
+                                          {day}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-4">
                     <FormField
                       control={form.control}
                       name="lateFeeType"
@@ -814,7 +972,7 @@ export default function ViewTenant() {
                           <FormLabel>Late Fee Type</FormLabel>
                           <Select
                             onValueChange={field.onChange}
-                            defaultValue={field.value}
+                            value={field.value}
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -850,9 +1008,6 @@ export default function ViewTenant() {
                         </FormItem>
                       )}
                     />
-                  </div>
-
-                  <div className="flex items-center gap-4">
                     <FormField
                       control={form.control}
                       name="initialPaymentAmount"
@@ -871,7 +1026,6 @@ export default function ViewTenant() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name="initialPaymentDate"
@@ -886,7 +1040,7 @@ export default function ViewTenant() {
                               value={
                                 field.value instanceof Date
                                   ? field.value.toISOString().split("T")[0]
-                                  : field.value
+                                  : field.value ?? ""
                               }
                             />
                           </FormControl>
@@ -894,7 +1048,6 @@ export default function ViewTenant() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name="agreementFile"
@@ -904,14 +1057,12 @@ export default function ViewTenant() {
                           <FormControl>
                             <Input
                               type="file"
-                              onChange={(e) => {
-                                const file = e.target.files
-                                  ? e.target.files[0]
-                                  : null;
-                                field.onChange(file); // Update form state with the file
-                              }}
-                              // Do not use value={field.value} to keep it uncontrolled
-                              ref={field.ref} // Attach ref for focus management
+                              onChange={(e) =>
+                                field.onChange(
+                                  e.target.files ? e.target.files[0] : null
+                                )
+                              }
+                              ref={field.ref}
                             />
                           </FormControl>
                           <FormMessage />
@@ -930,28 +1081,13 @@ export default function ViewTenant() {
             <div className="flex items-center justify-between">
               <div className="flex flex-col gap-2">
                 <Label className="font-bold text-xl">Lease Agreements</Label>
-                {/* <Select onValueChange={floorFilterChange}>
-									<SelectTrigger className="w-[150px]">
-										<SelectValue placeholder="Floor Number" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">All Floors</SelectItem>
-										{Array.from({ length: building?.noOfFloors || 0 }).map((_, i) => (
-											<SelectItem key={i + 1} value={(i + 1).toString()}>
-												Floor {i + 1}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select> */}
               </div>
-
               <div className="flex gap-2 items-center">
                 <Link href={`/dashboard/leases/view?tenantId=${tenant?.id}`}>
                   <Button>Add Lease Agreement</Button>
                 </Link>
               </div>
             </div>
-
             <DataTable columns={columns} data={leases} />
           </div>
         )}

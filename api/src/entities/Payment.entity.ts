@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, Index } from "typeorm";
 import { Lease } from "./Lease.entity";
 import { Bank } from "./Bank.entity";
 
@@ -7,6 +7,7 @@ export enum PaymentMethod {
 }
 
 @Entity("payments")
+@Index('unique_bank_reference', ['bankId', 'referenceNumber'], { unique: true })
 export class Payment {
     @PrimaryGeneratedColumn()
     id: number;
@@ -32,6 +33,9 @@ export class Payment {
 
     @Column()
     bankId: number;
+
+    @Column()
+    referenceNumber: string;
 
     @Column()
     notes: string;

@@ -21,8 +21,8 @@ export const columns: ColumnDef<Room>[] = [
 	{
 		accessorKey: "occupied",
 		cell: ({ row }) => row.original.occupied
-			? <p className="bg-slate-300 text-center">Rented</p>
-			: <p className="bg-green-300 text-center">Free</p>,
+			? <p className="bg-slate-300 rounded-full text-center">Rented</p>
+			: <p className="bg-green-300 rounded-full text-center">Free</p>,
 		header: "Occupied"
 	},
 	{

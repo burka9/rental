@@ -15,10 +15,6 @@ export const columns: ColumnDef<Room>[] = [
 		header: "Floor number"
 	},
 	{
-		header: "Number of offices",
-		cell: ({ row }) => row.original.partitions.length
-	},
-	{
 		header: "Actions",
 		size: 100,
 		cell: ({ row }) => {

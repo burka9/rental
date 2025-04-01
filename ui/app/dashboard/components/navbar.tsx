@@ -30,7 +30,7 @@ export default function AppNavbar() {
 	}, [pathname]);
 
 	return (
-		<div className="flex items-center justify-between p-4 border-b-2 border-gray-200 sticky top-0 bg-white">
+		<div className="flex items-center justify-between p-4 border-b-2 border-gray-200 sticky top-0 bg-white z-[999]">
 			<div className="flex items-center gap-4">
 				{/* <MenuIcon onClick={toggleSidebar} className="cursor-pointer" /> */}
 				<h1 className="text-xl font-semibold capitalize hidden">{name}</h1>

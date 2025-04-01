@@ -5,6 +5,8 @@ import tenantRoutes from "./tenant.routes";
 import bankRoutes from "./bank.routes";
 import leaseRoutes from "./lease.routes";
 import utilRoutes from "./util.routes";
+import paymentRoutes from "./payment.routes";
+import reportRoutes from "./report.routes";
 
 export default function(): Router {
 	const router = Router()
@@ -21,6 +23,8 @@ export default function(): Router {
 
 	router.use("/tenant", tenantRoutes())
 	router.use("/lease", leaseRoutes())
+	router.use("/payment", paymentRoutes())
+	router.use('/report', reportRoutes())
 
 	return router
 }

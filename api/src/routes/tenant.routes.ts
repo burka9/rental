@@ -1,158 +1,185 @@
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
-import { createTenant, deleteTenant, getTenant, getTenantByPhone, updateTenant } from "../controller/tenant.controller";
+import { createTenant, deleteTenant, getSingleTenant, getTenant, updateTenant } from "../controller/tenant.controller";
 import { createLease, updateLease } from "../controller/lease.controller";
 import { PaymentType } from "../entities/Lease.entity";
-import { getRoom, getRooms, updateRoom } from "../controller/room.controller";
+import { getRoom, getRooms, RoomRepository, updateRoom } from "../controller/room.controller";
+import { toGregorian } from "../lib/date-converter";
+import { In } from "typeorm";
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
-	destination: function (req: any, file: any, cb: any) {
-		cb(null, "uploads/agreements"); // Make sure this directory exists
-	},
-	filename: function (req: any, file: any, cb: any) {
-		const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1E9);
-		cb(null, "agreement-" + uniqueSuffix + path.extname(file.originalname));
-	}
+  destination: function (req: any, file: any, cb: any) {
+    cb(null, "uploads/agreements");
+  },
+  filename: function (req: any, file: any, cb: any) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "agreement-" + uniqueSuffix + path.extname(file.originalname));
+  },
 });
 
 const upload = multer({
-	storage: storage,
-	fileFilter: (req: any, file: any, cb: any) => {
-		// Accept only pdf files and images
-		if (file.mimetype === "application/pdf" || 
-			file.mimetype.startsWith("image/")) {
-			cb(null, true);
-		} else {
-			cb(null, false);
-			return cb(new Error("Only PDF and image files are allowed!"));
-		}
-	},
-	limits: {
-		fileSize: 5 * 1024 * 1024 // 5MB limit
-	}
+  storage: storage,
+  fileFilter: (req: any, file: any, cb: any) => {
+    if (file.mimetype === "application/pdf" || file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF and image files are allowed!"), false);
+    }
+  },
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
 });
 
-export default function(): Router {
-	const router = Router()
+export default function (): Router {
+  const router = Router();
 
-	router.get("/", async (req, res) => {
-		const tenants = await getTenant()
-		res.json({
-			success: true,
-			message: "Tenants fetched successfully",
-			data: tenants
-		})
-	})
+  router.get("/", async (req, res) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1; // Default to page 1
+      const limit = parseInt(req.query.limit as string) || 10; // Default to 10 rows per page
+      const search = (req.query.search as string) || ""; // Search term for name or phone
+      const isShareholder = (req.query.isShareholder as string) || "all"; // Filter by shareholder status
+      const skip = (page - 1) * limit;
 
-	router.get("/:id", async (req, res) => {
-		const tenant = await getTenant(Number(req.params.id))
-		res.json({
-			success: true,
-			message: "Tenant fetched successfully",
-			data: tenant
-		})
-	})
+      // Call getTenant with all parameters
+      const [tenants, total] = await getTenant({ 
+        skip, 
+        take: limit, 
+        search, 
+        isShareholder: isShareholder === "all" ? undefined : isShareholder 
+      });
 
-	router.post("/", upload.single("agreementFile"), async (req: any, res: any) => {
-		const body = req.body
-		const file = req.file
-		
-		// exit if user.phone is already in the database
-		const existingTenant = await getTenantByPhone(body.phone)
-		if (existingTenant) {
-			return res.status(400).json({
-				success: false,
-				message: "Tenant already exists"
-			})
-		}
+      res.json({
+        success: true,
+        message: "Tenants fetched successfully",
+        data: {
+          tenants,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+          },
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        message: "Error fetching tenants",
+        error: error.message,
+      });
+    }
+  });
 
-		// create a tenant object
-		const tenant = await createTenant({
-			name: body.name,
-			phone: body.phone,
-			address: body.address,
-			tinNumber: body.tinNumber,
-			isShareholder: body.isShareholder,
-			leases: []
-		})
+  // Other endpoints remain unchanged
+  router.get("/:id", async (req, res) => {
+    const tenant = await getSingleTenant({ id: Number(req.params.id) });
+    res.json({
+      success: true,
+      message: "Tenant fetched successfully",
+      data: tenant,
+    });
+  });
 
-		// get the partition ids from the body
-		const roomIds = JSON.parse(body.rooms).map((room: any) => room.id)
+  router.post("/", upload.single("agreementFile"), async (req: any, res: any) => {
+    const body = req.body;
+    const file = req.file;
 
-		// check if the selected rooms are occupied
-		const selectedRooms = await getRooms(roomIds)
-		if (selectedRooms.some((room: any) => room.occupied)) {
-			return res.status(400).json({
-				success: false,
-				message: "Selected rooms are not available"
-			})
-		}
-		
-		// create a lease object with the body
-		const lease = await createLease({
-			tenant: tenant,
-			roomIds: roomIds,
-			startDate: body.startDate,
-			endDate: body.endDate,
-			paymentIntervalInMonths: body.paymentIntervalInMonths,
-			paymentAmountPerMonth: JSON.parse(body.paymentAmountPerMonth),
-			deposit: body.deposit,
-			lateFeeType: body.lateFeeType,
-			lateFee: body.lateFee,
-			initialPayment: {
-				amount: body.initialPaymentAmount,
-				paymentDate: body.initialPaymentDate,
-			},
-			lateFeeGracePeriodInDays: 0,
-			active: true,
-			paymentType: PaymentType.PREPAID,
-			files: [{
-				filename: file?.filename || "",
-				path: file?.path || ""
-			}]
-		})
+    const existingTenant = await getSingleTenant({ phone: body.phone });
+    if (existingTenant) {
+      return res.status(400).json({
+        success: false,
+        message: "Tenant already exists",
+      });
+    }
 
-		if (!lease) {
-			return res.status(400).json({
-				success: false,
-				message: "Lease creation failed"
-			})
-		}
+    const roomIds: { buildingId: string; roomId: string }[] = JSON.parse(body.rooms);
+    const selectedRooms = await RoomRepository.find({
+      where: {
+        id: In(roomIds.map((room) => room.roomId)),
+        buildingId: In(roomIds.map((room) => room.buildingId)),
+      },
+    });
 
-		// update the rooms to be occupied
-		for await (const room of selectedRooms) {
-			await updateRoom(room.id, { occupied: true })
-		}
+    if (selectedRooms.some((room: any) => room.occupied)) {
+      return res.status(400).json({
+        success: false,
+        message: "Selected rooms are not available",
+      });
+    }
 
-		// update the tenant with the lease id
-		// await updateTenant(tenant.id, { leases: [lease] })
-		
-		res.json({
-			success: true,
-			message: "Tenant created successfully",
-			data: tenant
-		})
-	})
+    const tenant = await createTenant({
+      name: body.name,
+      phone: body.phone,
+      address: body.address,
+      tinNumber: body.tinNumber,
+      isShareholder: body.isShareholder,
+      leases: [],
+    });
 
-	router.put("/:id", async (req, res) => {
-		const tenant = await updateTenant(Number(req.params.id), req.body)
-		res.json({
-			success: true,
-			message: "Tenant updated successfully",
-			data: tenant
-		})
-	})
+    const startDate = JSON.parse(body.startDate)[0];
+    const endDate = JSON.parse(body.endDate)[0];
+    const startDateEthiopian = toGregorian([Number(startDate.year), Number(startDate.month), Number(startDate.day)]);
+    const endDateEthiopian = toGregorian([Number(endDate.year), Number(endDate.month), Number(endDate.day)]);
 
-	router.delete("/:id", async (req, res) => {
-		const tenant = await deleteTenant(Number(req.params.id))
-		res.json({
-			success: true,
-			message: "Tenant deleted successfully",
-			data: tenant
-		})
-	})
+    const lease = await createLease({
+      tenant,
+      roomIds: roomIds.map((room) => Number(room.roomId)),
+      startDate: new Date(startDateEthiopian[0], startDateEthiopian[1] - 1, startDateEthiopian[2]),
+      endDate: new Date(endDateEthiopian[0], endDateEthiopian[1] - 1, endDateEthiopian[2]),
+      paymentIntervalInMonths: Number(body.paymentIntervalInMonths),
+      paymentAmountPerMonth: JSON.parse(body.paymentAmountPerMonth),
+      deposit: Number(body.deposit),
+      lateFeeType: body.lateFeeType,
+      lateFee: Number(body.lateFee),
+      initialPayment: {
+        amount: Number(body.initialPaymentAmount),
+        paymentDate: body.initialPaymentDate,
+      },
+      lateFeeGracePeriodInDays: 0,
+      active: true,
+      paymentType: PaymentType.PREPAID,
+      files: [{ filename: file?.filename || "", path: file?.path || "" }],
+    });
 
-	return router
+    if (!lease) {
+      return res.status(400).json({
+        success: false,
+        message: "Lease creation failed",
+      });
+    }
+
+    for await (const room of selectedRooms) {
+      await updateRoom(room.id, { occupied: true });
+    }
+
+    res.json({
+      success: true,
+      message: "Tenant created successfully",
+      data: tenant,
+    });
+  });
+
+  router.put("/:id", async (req, res) => {
+    const tenant = await updateTenant(Number(req.params.id), req.body);
+    res.json({
+      success: true,
+      message: "Tenant updated successfully",
+      data: tenant,
+    });
+  });
+
+  router.delete("/:id", async (req, res) => {
+    const tenant = await deleteTenant(Number(req.params.id));
+    res.json({
+      success: true,
+      message: "Tenant deleted successfully",
+      data: tenant,
+    });
+  });
+
+  return router;
 }

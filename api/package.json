@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn src/index.ts",
+    "dev": "nodemon src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
     "typeorm": "typeorm-ts-node-commonjs"
@@ -28,7 +28,6 @@
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "dotenv": "^16.4.7",
-    "ethiopian-date": "^0.0.6",
     "express": "^4.21.2",
     "express-async-errors": "^3.1.1",
     "helmet": "^8.0.0",

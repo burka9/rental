@@ -27,7 +27,8 @@ export default function(): Router {
 		const newBuilding = await createBuilding({
 			name: body.name,
 			address: body.address,
-			noOfFloors: body.noOfFloors
+			noOfFloors: body.noOfFloors,
+			noOfBasements: body.noOfBasements,
 		})
 
 		res.json({

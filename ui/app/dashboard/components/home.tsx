@@ -55,8 +55,8 @@ export default function Home() {
       </div>
 
 			<h2 className="text-2xl font-semibold mb-4 text-center">Overview</h2>
-			<div className="flex flex-wrap justify-center gap-8 px-12">
-				{links.map((link) => (
+			<div className="flex flex-wrap justify-center gap-8 px-12 mx-auto">
+				{links.map((link) => link.showOnDashboard && (
 					<Link key={link.href} href={link.href} className="max-w-[250px] w-full">
 						<Card>
 							<CardHeader>

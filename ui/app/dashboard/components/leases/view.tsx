@@ -23,7 +23,6 @@ const formSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().min(1, "End date is required"),
   tenantId: z.coerce.number().min(1, "Tenant is required"),
-  partitionIds: z.array(z.number()).min(1, "At least one partition is required"),
   paymentType: z.enum(["PREPAID", "POSTPAID"]),
   paymentAmountPerMonth: z.object({
     base: z.coerce.number().min(0, "Base amount is required"),
@@ -53,7 +52,6 @@ export default function ViewLease() {
       startDate: "",
       endDate: "",
       tenantId: 0,
-      partitionIds: [],
       paymentType: "PREPAID",
       paymentAmountPerMonth: {
         base: 0,
@@ -96,7 +94,6 @@ export default function ViewLease() {
           startDate: new Date(data.startDate).toISOString().split("T")[0],
           endDate: new Date(data.endDate).toISOString().split("T")[0],
           tenantId: data.tenantId,
-          partitionIds: data.partitionIds,
           paymentType: data.paymentType,
           paymentAmountPerMonth: data.paymentAmountPerMonth,
           deposit: data.deposit,

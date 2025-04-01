@@ -9,11 +9,17 @@ export class Building {
     @Column()
     name: string;
 
-    @Column()
+    @Column({ nullable: true })
     address: string;
 
     @Column()
     noOfFloors: number;
+
+    @Column()
+    noOfBasements: number;
+
+    @Column("json")
+    floors: { order: number, name: string }[];
 
     @OneToMany(() => Room, room => room.building)
     rooms: Room[];

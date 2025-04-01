@@ -92,10 +92,11 @@ export type Lease = {
 	startDate: Date
 	endDate: Date
 	tenantId: number
-	partitionIds: number[]
+	roomIds: number[]
 	paymentType: ('PREPAID' | 'POSTPAID')
 	paymentAmountPerMonth: {
 		base: number
+		utility: number
 		[key: string]: number
 	}
 	deposit: number
@@ -107,7 +108,10 @@ export type Lease = {
 	lateFee: number
 	lateFeeType: ('PERCENTAGE' | 'FIXED')
 	lateFeeGracePeriodInDays: number
-	files: string[] // file path
+	files: {
+		filename: string
+		path: string
+	}[] // file path
 	active: boolean
 	paymentSchedule: PaymentSchedule[] // used to show relation
 	payments: Payment[] // used to show relation
