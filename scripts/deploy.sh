@@ -22,7 +22,7 @@ git pull origin main
 
 
 # fix axios
-FILE = 'ui/lib/axios.ts'
+FILE='ui/lib/axios.ts'
 NEW_LINE="const API_URL = \"http://116.203.217.208:4000\""
 
 sed -i "s|^const API_URL.*|$NEW_LINE|" "$FILE"
