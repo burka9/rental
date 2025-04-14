@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
-import { createPayment, verifyPayment, getPayment, getOverduePaymentSchedule } from '../controller/payment.controller'
+import { createPayment, verifyPayment, getPayment, getOverduePaymentSchedule, changeStatus } from '../controller/payment.controller'
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -117,6 +117,25 @@ export default function(): Router {
 							message: error.message 
 					})
 			}
+	})
+
+	router.post('/change-status/:scheduleId', async (req, res) => {
+		try {
+			const { scheduleId } = req.params
+			const status = req.body.status
+
+			const payment = await changeStatus(parseInt(scheduleId), status === 'PAID')
+			res.json({
+				success: true,
+				message: "Payment marked as paid successfully",
+				data: payment
+			})
+		} catch (error: any) {
+			res.status(400).json({ 
+				success: false,
+				message: error.message 
+			})
+		}
 	})
 
 	return router

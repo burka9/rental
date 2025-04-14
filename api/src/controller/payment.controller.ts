@@ -60,4 +60,22 @@ export async function verifyPayment(id: number, verificationData: Partial<Paymen
         where: { id },
         relations: ['lease', 'bank']
     })
-} 
+}
+
+export async function changeStatus(scheduleId: number, paid: boolean) {
+    const schedule = await PaymentScheduleRepository.findOne({
+        where: { id: scheduleId }
+    })
+
+    if (!schedule) {
+        throw new Error("Payment schedule not found")
+    }
+
+    console.log(paid)
+
+    await PaymentScheduleRepository.update(scheduleId, { paidAmount: paid ? schedule.payableAmount : 0 })
+    return await PaymentScheduleRepository.findOne({
+        where: { id: scheduleId },
+        relations: ['lease']
+    })
+}

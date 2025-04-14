@@ -34,7 +34,7 @@ export class Payment {
     @Column()
     bankId: number;
 
-    @Column()
+    @Column({ unique: true })
     referenceNumber: string;
 
     @Column()

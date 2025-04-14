@@ -13,9 +13,10 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
+import { axios } from "@/lib/axios";
 
 const loginSchema = z.object({
-  phone: z.string().min(10, "Phone number must be at least 10 characters"),
+  phone: z.string().min(4, "Phone number must be at least 10 characters"),
   password: z.string().min(4, "Password must be at least 4 characters"),
 });
 
@@ -25,7 +26,13 @@ const LoginPage = () => {
   });
 
   const onSubmit = (data: z.infer<typeof loginSchema>) => {
-    console.log(data);
+    axios.post('/auth/login', data, { withCredentials: true })
+      .then(res => {
+        console.log(res.data)
+      })
+      .catch(error => {
+        console.log(error)
+      })
   };
 
   return (

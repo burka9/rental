@@ -7,6 +7,7 @@ import leaseRoutes from "./lease.routes";
 import utilRoutes from "./util.routes";
 import paymentRoutes from "./payment.routes";
 import reportRoutes from "./report.routes";
+import authRoutes from "./auth.routes";
 
 export default function(): Router {
 	const router = Router()
@@ -15,6 +16,8 @@ export default function(): Router {
 		res.send("Hello, world!")
 	})
 
+	router.use('/auth', authRoutes())
+	
 	router.use('/util', utilRoutes())
 
 	router.use("/building", buildingRoutes())

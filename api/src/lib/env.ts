@@ -6,5 +6,6 @@ export const env = {
 	SERVER_PORT: Number(process.env.PORT || "4000"),
 	DB_TYPE: process.env.DB_TYPE || "mysql",
 	DB_URL: process.env.DB_URL || "mysql://root:password@localhost:3306/rental_app",
-	LOG_LEVEL: process.env.LOG_LEVEL || "info"
+	LOG_LEVEL: process.env.LOG_LEVEL || "info",
+	FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
 }

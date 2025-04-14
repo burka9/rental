@@ -11,6 +11,9 @@ import { errorHandler } from "./middlewares/error";
 import 'express-async-errors'
 import { Server } from "socket.io";
 import handleSocket from "./socket";
+import { User } from "./entities/User.entity";
+import { hashSync } from "bcrypt";
+import { ROLES } from "./entities/User.entity";
 
 const app = express()
 app.use(express.json())
@@ -23,7 +26,10 @@ app.use(morgan('combined', {
 		},
 	}
 }))
-app.use(cors())
+app.use(cors({
+	origin: env.FRONTEND_URL,
+	credentials: true
+}))
 
 
 // TODO: Add error handling middleware
@@ -52,11 +58,16 @@ Database.initialize()
 		server.listen(PORT, () => {
 			logger.info(`Server is running on ${HOST}:${PORT}`)
 		})
-		// main()
 
-		// createBlocks(Database)
-		// 	.then(add_data)
+		// init default admin
+		const userRepository = Database.getRepository(User)
+		return userRepository.save({
+			phone: 'admin',
+			password: hashSync('admin', 10),
+			role: ROLES.SUPERADMIN
+		})
 	})
+	.then(() => console.log('done'))
 	.catch((err: Error) => {
 		console.log(err)
 		logger.error(err)

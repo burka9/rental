@@ -68,5 +68,5 @@ export const columns: ColumnDef<Lease>[] = [
         </div>
       )
     }
-  }
+  },
 ]

@@ -31,11 +31,6 @@ export default function ViewRoom() {
   const router = useRouter();
   const { fetchRoom, createRoom, updateRoom, deleteRoom, buildings, fetchBuildings } = usePropertyStore();
 
-  const selectedBuilding = useMemo(() => {
-    if (!room?.buildingId || !buildings.length) return null;
-    return buildings.find(b => b.id === room.buildingId);
-  }, [room?.buildingId, buildings]);
-
   const form = useForm<z.infer<typeof formSchema>>({
     mode: "onChange",
     resolver: zodResolver(formSchema),
@@ -48,14 +43,21 @@ export default function ViewRoom() {
     },
   });
 
-	const buildingId = form.watch("buildingId");
+  
+  const buildingId = form.watch("buildingId");
+  
+  const selectedBuilding = useMemo(() => {
+    if (creating && buildingId !== null) return buildings.find(b => b.id === buildingId);
+    
+    if (!room?.buildingId || !buildings.length) return null;
+    return buildings.find(b => b.id === room.buildingId);
+  }, [room?.buildingId, buildings, creating, buildingId]);
 
   // Get floors for the selected building
   const selectedBuildingFloors = useMemo(() => {
     if (!buildingId || buildingId < 0 || !buildings.length) return [];
     const building = buildings.find(b => b.id === Number(buildingId));
-		console.log(buildings);
-		
+
     return building?.floors || [];
   }, [buildingId, buildings]);
 
@@ -266,7 +268,11 @@ export default function ViewRoom() {
                     <FormLabel>Building</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={room?.buildingId?.toString() ?? ""}
+                      defaultValue={
+                        creating
+                        ? selectedBuilding?.id?.toString() ?? ""
+                        : room?.buildingId?.toString() ?? ""
+                      }
                       disabled={!creating && !editing}
                     >
                       <SelectTrigger>
