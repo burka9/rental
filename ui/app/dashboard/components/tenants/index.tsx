@@ -8,10 +8,11 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
+import { Card, CardContent } from "@/components/ui/card"
 
 export default function Tenants() {
   const searchParams = useSearchParams()
-  const { tenants, totalTenants, currentPage, pageSize } = useTenantStore()
+  const { tenants, totalTenants, tenantCurrentPage, tenantPageSize } = useTenantStore()
 
   useEffect(() => {
     if (searchParams.get("message")) {
@@ -24,18 +25,20 @@ export default function Tenants() {
       <div className="flex items-center justify-between">
         <Label className="text-2xl font-bold mb-4">Tenants</Label>
         <Link href={`/dashboard/tenants/view?create=true`}>
-          <Button>Add New Tenant</Button>
+          <Button className="bg-slate-800 hover:bg-slate-900">Add New Tenant</Button>
         </Link>
       </div>
-      <div className="flex gap-4">
-        <DataTable
-          columns={columns}
-          data={tenants}
-          totalItems={totalTenants}
-          pageSize={pageSize}
-          currentPage={currentPage}
-        />
-      </div>
+      <Card className="border-none shadow-md rounded-lg">
+        <CardContent className="pt-6">
+          <DataTable
+            columns={columns}
+            data={tenants}
+            totalItems={totalTenants}
+            pageSize={tenantPageSize}
+            currentPage={tenantCurrentPage}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }

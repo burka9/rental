@@ -18,6 +18,7 @@ export async function getOverview() {
 	const buildings = await BuildingRepository.count()
 	const users = await UserRepository.count()
 	const banks = await BankRepository.count()
+	const leases = await TenantRepository.countBy({ leases: { active: true } })
 
 	return {
 		tenants,
@@ -26,5 +27,6 @@ export async function getOverview() {
 		buildings,
 		users,
 		banks,
+		leases
 	}
 }

@@ -5,11 +5,13 @@ import { CurrentUser } from '../types'
 
 type StoreState = {
 	user?: CurrentUser
+	loadingPage: boolean
 }
 
 type StoreAction = {
 	setUser: (user: CurrentUser) => void
 	fetchUser: () => Promise<CurrentUser | null>
+	setLoadingPage: (loadingPage: boolean) => void
 }
 
 type Store = StoreState & StoreAction
@@ -41,5 +43,9 @@ export const useStore = create<Store>(set => ({
 		}
 
 		return null
+	},
+	loadingPage: true,
+	setLoadingPage: loadingPage => {
+		set({ loadingPage })
 	}
 }))

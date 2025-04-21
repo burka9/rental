@@ -13,14 +13,16 @@ export async function getLease(id?: number) {
             where: { id },
             relations: {
                 paymentSchedule: true,
-                payments: true
+                payments: true,
+                tenant: true
             }
         })
     }
     return await LeaseRepository.find({
         relations: {
             paymentSchedule: true,
-            payments: true
+            payments: true,
+            tenant: true
         }
     })
 }

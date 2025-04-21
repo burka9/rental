@@ -1,46 +1,53 @@
 'use client'
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { usePropertyStore } from "@/lib/store/property";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { toast } from "sonner"
+import { toast } from "sonner";
 import { DataTable } from "./rooms/data-table";
 import { columns } from "./rooms/columns";
 import Link from "next/link";
-
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function Rooms() {
-	const searchParams = useSearchParams()
-	const { fetchRooms, rooms } = usePropertyStore()
+  const searchParams = useSearchParams();
+  const { fetchRooms, rooms } = usePropertyStore();
+	const [vacant, setVacant] = useState(false)
 
-	useEffect(() => {
-		fetchRooms()
-			.then(data => {
-				console.log(data)
-			})
-			.catch(error => {
-				console.log(error)
-			})
-	}, [fetchRooms])
+  useEffect(() => {
+    fetchRooms()
+      .then((data) => {
+        console.log(data);
+      })
+      .catch((error) => {
+        console.log(error);
+        toast.error("Failed to fetch rooms");
+      });
+  }, [fetchRooms]);
 
-	useEffect(() => {
-		if (searchParams.get("message")) {
-			toast.success(searchParams.get("message")!)
+  useEffect(() => {
+    if (searchParams.get("message")) {
+      toast.success(searchParams.get("message")!);
+    }
+
+		if (searchParams.get("vacant")) {
+			setVacant(true)
 		}
-	}, [searchParams])
-	
-	return (
-		<div className="flex flex-col gap-4">
-			<div className="flex items-center justify-between">
-				<Label className="text-2xl font-bold mb-4">Rooms</Label>
-				<Link href={`/dashboard/rooms/view?create=true`}>
-					<Button>Add New Room</Button>
-				</Link>
-			</div>
-			<div className="flex gap-4">
-				<DataTable columns={columns} data={rooms} />
-			</div>
-		</div>
-	);
+  }, [searchParams]);
+
+  return (
+    <div className="container mx-auto py-8">
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Rooms</h1>
+        <Link href={`/dashboard/rooms/view?create=true`}>
+          <Button className="bg-slate-800 hover:bg-slate-900">Add New Room</Button>
+        </Link>
+      </div>
+      <Card className="border-none shadow-md rounded-lg">
+        <CardContent className="pt-6">
+          <DataTable columns={columns} data={rooms} vacant={vacant} />
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

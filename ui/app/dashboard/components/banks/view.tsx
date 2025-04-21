@@ -21,7 +21,6 @@ const formSchema = z.object({
 	name: z.string(),
 	branch: z.string(),
 	accountNumber: z.string(),
-	ownerName: z.string(),
 })
 
 export default function ViewRoom() {
@@ -38,7 +37,6 @@ export default function ViewRoom() {
 			name: bank?.name ?? "",
 			branch: bank?.branch ?? "",
 			accountNumber: bank?.accountNumber ?? "",
-			ownerName: bank?.ownerName ?? "",
 		}
 	})
 
@@ -249,25 +247,6 @@ export default function ViewRoom() {
 											<Input
 												{...field}
 												placeholder="Account Number"
-												readOnly={!creating && !editing}
-												className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-
-							<FormField
-								control={form.control}
-								name="ownerName"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Owner Name</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												placeholder="Owner Name"
 												readOnly={!creating && !editing}
 												className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
 											/>

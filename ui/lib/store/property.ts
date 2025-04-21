@@ -20,7 +20,7 @@ type StoreAction = {
 	updateBuilding: (building: Partial<Building>) => Promise<Building | null>
 	deleteBuilding: (id: number) => Promise<boolean>
 
-	fetchRooms: () => Promise<Room[]>
+	fetchRooms: (ids?: number[] | string[]) => Promise<Room[]>
 	fetchRoom: (id: number) => Promise<Room | null>
 	createRoom: (room: Partial<Room>) => Promise<boolean>
 	updateRoom: (room: Partial<Room>) => Promise<Room | null>
@@ -137,11 +137,13 @@ export const usePropertyStore = create<Store>(set => ({
 	},
 
 	rooms: [],
-	fetchRooms: async () => {
+	fetchRooms: async (ids?: number[] | string[]) => {
 		const { user } = useStore.getState()
 
 		try {
-			const res = await axios.get('/room', {
+			const rooms = ids ? `ids=${ids.join(',')}` : ''
+			console.log(rooms)
+			const res = await axios.get(`/room?${rooms}`, {
 				headers: {
 					Authorization: `Bearer ${user?.token}`
 				}

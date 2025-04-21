@@ -1,52 +1,73 @@
 'use client'
-import { Room } from "@/lib/types"
-import { ColumnDef } from "@tanstack/react-table"
-import { Button } from "@/components/ui/button"
-import { PencilIcon, TrashIcon } from "lucide-react"
-import Link from "next/link"
+import { Room } from "@/lib/types";
+import { ColumnDef } from "@tanstack/react-table";
+import { usePropertyStore } from "@/lib/store/property";
+import { ColumnActions } from "@/components/columnAction";
+
+const RoomActions = ({ room }: { room: Room }) => {
+  const { deleteRoom } = usePropertyStore();
+
+	const handleDelete = async () => {
+    try {
+			await deleteRoom(room.id)
+			return true
+		} catch {
+			return false
+		}
+  };
+
+  return <ColumnActions
+			removeAction={handleDelete}
+			item={{
+				item: room,
+				name: "Room",
+				link: {
+					view: `/dashboard/rooms/view?id=${room.id}`,
+					edit: `/dashboard/rooms/view?id=${room.id}&edit=true`,
+				}
+			}}
+		/>
+};
 
 export const columns: ColumnDef<Room>[] = [
-	{
-		accessorKey: "number",
-		header: "Room Number"
-	},
-	{
-		accessorKey: "floorNumber",
-		header: "Floor number"
-	},
-	{
-		header: "Actions",
-		size: 100,
-		cell: ({ row }) => {
-			return (
-				<div className="flex gap-2">
-					<Link href={`/dashboard/rooms/view?id=${row.original.id}`}>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-8 w-full"
-							>
-							View Room
-						</Button>
-					</Link>
-					<Link href={`/dashboard/rooms/view?id=${row.original.id}&edit=true`}>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-8 w-full"
-							onClick={() => {}}
-						>
-							<PencilIcon /> Edit
-						</Button>
-					</Link>
-					<Button
-            variant="outline"
-            size="sm"
-            >
-            <TrashIcon /> Delete
-          </Button>
-        </div>
-			);
-		},
-	}
-]
+  {
+    accessorKey: "name",
+    header: "Room Name",
+    cell: ({ row }) => (
+      <span className="text-gray-800 font-medium">{row.original.name}</span>
+    ),
+  },
+  {
+    accessorKey: "floorNumber",
+    header: "Floor Number",
+    cell: ({ row }) => (
+      <span className="text-gray-600">{row.original.floorNumber}</span>
+    ),
+  },
+  {
+    accessorKey: "sizeInSquareMeters",
+    header: "Size (sqm)",
+    cell: ({ row }) => (
+      <span className="text-gray-600">{row.original.sizeInSquareMeters ?? '-'}</span>
+    ),
+  },
+  {
+    accessorKey: "occupied",
+    header: "Status",
+    cell: ({ row }) => (
+      <span
+        className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+          row.original.occupied
+            ? "bg-red-100 text-red-800"
+            : "bg-green-100 text-green-800"
+        }`}
+      >
+        {row.original.occupied ? "Rented" : "Free"}
+      </span>
+    ),
+  },
+  {
+    header: "Actions",
+    cell: ({ row }) => <RoomActions room={row.original} />,
+  },
+];

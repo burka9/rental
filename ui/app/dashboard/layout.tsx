@@ -2,7 +2,8 @@ import { cn } from "@/lib/utils";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppSidebar from "./components/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import AppNavbar from "./components/navbar";
+// import AppNavbar from "./components/navbar";
+// import Loading from "@/components/loading";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,8 +29,10 @@ export default function RootLayout({
 		)}>
 			<AppSidebar />
 
-			<main className='bg-white flex flex-col grow'>
-        <AppNavbar />
+      {/* <Loading /> */}
+
+			<main className='bg-gray-100 flex flex-col grow'>
+        {/* <AppNavbar /> */}
         <div className="grow m-8">
           {children}
         </div>

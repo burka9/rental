@@ -1,0 +1,25 @@
+[
+  {
+    "row": 5,
+    "type": "room",
+    "error": "ER_BAD_NULL_ERROR: Column 'floorNumber' cannot be null",
+    "data": {
+      "id": "3",
+      "tenant name": "Habiba Aman Shifa",
+      "tenant address": null,
+      "tenant phone number": null,
+      "office number": "B03",
+      "block number": null,
+      "office size": null,
+      "floor number": null,
+      "start date": "Invalid Date",
+      "end date": "Invalid Date",
+      "rent per month": null,
+      "deposit amount": null,
+      "initial payment": null,
+      "payment interval": "3",
+      "tenant tin number": null,
+      "remark": null
+    }
+  }
+]

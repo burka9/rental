@@ -1,13 +1,14 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, Unique } from "typeorm";
 import { Lease } from "./Lease.entity";
 import { Notification } from "./Notification.entity";
 
 @Entity("tenants")
+@Unique(["name", "phone"]) // Composite unique constraint on name and buildingId
 export class Tenant {
     @PrimaryGeneratedColumn()
     id: number;
 
-    @Column()
+    @Column({ nullable: false })
     name: string;
 
     @Column({ nullable: true })

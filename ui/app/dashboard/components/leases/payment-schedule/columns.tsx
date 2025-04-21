@@ -3,10 +3,9 @@
 import { PaymentSchedule } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
-import { ethiopianMonths, toEthiopian } from "@/lib/date-converter"
 import { axios } from "@/lib/axios"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
+import { cn, toEthiopianDateString } from "@/lib/utils"
 
 export const columns: ColumnDef<PaymentSchedule>[] = [
   {
@@ -19,11 +18,11 @@ export const columns: ColumnDef<PaymentSchedule>[] = [
       const payableAmount = Number(row.original.payableAmount || 0)
       const isPastDue = dueDate < today && paidAmount < payableAmount
       
-      const [year, month, date] = toEthiopian(dueDate.getFullYear(), dueDate.getMonth() + 1, dueDate.getDate())
+      const ethDate = toEthiopianDateString(dueDate)
       
       return (
         <div className={isPastDue ? "text-red-600 font-medium" : ""}>
-          {year} {ethiopianMonths[month - 1]} {date+1}
+          {ethDate}
         </div>
       )
     }

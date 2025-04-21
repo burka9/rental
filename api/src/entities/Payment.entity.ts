@@ -15,9 +15,6 @@ export class Payment {
     @Column()
     leaseId: number;
 
-    @Column()
-    scheduleId: number;
-
     @Column("decimal")
     paidAmount: number;
 
@@ -34,19 +31,19 @@ export class Payment {
     @Column()
     bankId: number;
 
-    @Column({ unique: true })
+    @Column()
     referenceNumber: string;
 
-    @Column()
+    @Column({ nullable: true })
     notes: string;
 
-    @Column()
+    @Column({ default: false })
     isVerified: boolean;
 
-    @Column()
+    @Column({ nullable: true })
     verifiedAt: Date;
 
-    @Column()
+    @Column({ nullable: true })
     verifiedBy: string;
 
     // New file columns

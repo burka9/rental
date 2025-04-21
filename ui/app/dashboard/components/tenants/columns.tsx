@@ -1,9 +1,34 @@
 'use client'
+import { ColumnActions } from "@/components/columnAction"
+import { useTenantStore } from "@/lib/store/tenants"
 import { Tenant } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
-import { Button } from "@/components/ui/button"
-import { PencilIcon, TrashIcon } from "lucide-react"
-import Link from "next/link"
+
+
+const RowActions = ({ tenant }: { tenant: Tenant }) => {
+	const { deleteTenant } = useTenantStore()
+	
+	const handleDelete = async () => {
+		try {
+			await deleteTenant(tenant.id)
+			return true
+		} catch {
+			return false
+		}
+	}
+	
+	return <ColumnActions
+		removeAction={handleDelete}
+		item={{
+			item: tenant,
+			name: "Tenant",
+			link: {
+				view: `/dashboard/tenants/view?id=${tenant.id}`,
+				edit: `/dashboard/tenants/view?id=${tenant.id}&edit=true`,
+			}
+		}}
+	/>
+}
 
 export const columns: ColumnDef<Tenant>[] = [
 	{
@@ -27,43 +52,13 @@ export const columns: ColumnDef<Tenant>[] = [
 		accessorKey: "tinNumber",
 		header: "TIN"
 	},
-	{
-		header: "Lease",
-		cell: ({ row }) => row.original.leases?.length
-	},
+	// {
+	// 	header: "Lease",
+	// 	cell: ({ row }) => row.original.leases?.length
+	// },
 	{
 		header: "Actions",
 		size: 100,
-		cell: ({ row }) => {
-			return (
-				<div className="flex gap-2">
-					<Link href={`/dashboard/tenants/view?id=${row.original.id}`}>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-8 w-full"
-							>
-							View
-						</Button>
-					</Link>
-					<Link href={`/dashboard/tenants/view?id=${row.original.id}&edit=true`}>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-8 w-full"
-						>
-							<PencilIcon /> Edit
-						</Button>
-					</Link>
-					<Button
-            variant="outline"
-            size="sm"
-            onClick={() => {}}
-            >
-            <TrashIcon /> Delete
-          </Button>
-        </div>
-			);
-		},
+		cell: ({ row }) => <RowActions tenant={row.original} />
 	}
 ]

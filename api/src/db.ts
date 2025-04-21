@@ -7,7 +7,7 @@ export const Database = new DataSource({
 	// logging: true,
 
 	// dropSchema: true,
-	// synchronize: true,
+	synchronize: true,
 
 	entities: [
 		env.NODE_ENV === "production"

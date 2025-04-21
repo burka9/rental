@@ -1,6 +1,6 @@
 'use client'
 
-import { Lease } from "@/lib/types";
+import { Lease, Room } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,11 @@ import { toast } from "sonner";
 import { useTenantStore } from "@/lib/store/tenants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DataTable } from "./payment-schedule/data-table";
+import { DataTable as RoomsDataTable } from "./roomsDataTable";
+import { columns as roomsColumn } from "./roomsColumn";
 import { columns } from "./payment-schedule/columns";
 import { toEthiopian, toGregorian } from '@/lib/date-converter';
+import { usePropertyStore } from "@/lib/store/property";
 
 // Ethiopian month names
 const monthNames = [
@@ -110,9 +113,27 @@ export default function ViewLease() {
     fetchTenants
   } = useTenantStore();
 
+  const { fetchRooms } = usePropertyStore();
+
+  const [rentedRooms, setRentedRooms] = useState<Room[]>([]);
+
+  useEffect(() => {
+    if (!lease) {
+      setRentedRooms([]);
+      return;
+    }
+    fetchRooms(lease.roomIds).then(rooms => {
+      setRentedRooms(rooms);
+      console.log(rooms)
+    }).catch(error => {
+      console.error("Error fetching rooms:", error);
+      setRentedRooms([]);
+    });
+  }, [lease, fetchRooms]);
+
   useEffect(() => {
     fetchTenants();
-  }, [fetchTenants]);
+  }, [fetchTenants, fetchRooms]);
 
   useEffect(() => {
     const id = searchParams.get("id");
@@ -784,6 +805,14 @@ export default function ViewLease() {
           )}
         </form>
       </Form>
+
+      <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">Rented Rooms</h2>
+          <RoomsDataTable
+            columns={roomsColumn}
+            data={rentedRooms}
+          />
+        </div>
 
       {lease && lease.paymentSchedule && lease.paymentSchedule.length > 0 && (
         <div className="mt-8">

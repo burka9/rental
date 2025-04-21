@@ -75,14 +75,14 @@ export async function createBuilding(building: Partial<Building>) {
 	newBuilding.floors = []
 	
 	for (let i = (building.noOfBasements ?? 0); i > 0; i--) {
-		newBuilding.floors.push({ order: newBuilding.floors.length, name: `Basement ${i}` })
+		newBuilding.floors.push({ order: newBuilding.floors.length, name: `BS${i}` })
 	}
 
-	newBuilding.floors.push({ order: newBuilding.floors.length, name: `Ground` })
+	newBuilding.floors.push({ order: newBuilding.floors.length, name: `GF` })
 	
 	// floors
 	for (let i = 1; i <= (building.noOfFloors ?? 0); i++) {
-		newBuilding.floors.push({ order: newBuilding.floors.length, name: `Floor ${i}` })
+		newBuilding.floors.push({ order: newBuilding.floors.length, name: `F${i}` })
 	}
 
 	await BuildingRepository.save(newBuilding)

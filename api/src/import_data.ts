@@ -9,6 +9,7 @@ import { Lease } from './entities/Lease.entity';
 import { PaymentSchedule } from './entities/PaymentSchedule.entity';
 import { toGregorian } from './lib/date-converter';
 import { generatePaymentSchedule } from './types';
+import { Bank } from './entities/Bank.entity';
 
 const LeaseRepository = ImportDatabase.getRepository(Lease)
 const PaymentScheduleRepository = ImportDatabase.getRepository(PaymentSchedule)
@@ -61,17 +62,13 @@ function import_sheets() {
   console.log('importing started...');
 
   for (const t of [
-		'data/Brook Latest Block 1 and Block 3 data.xlsx',
-		'data/Block 2 Data.xlsx',
-		'data/Block 2 Shareholders data.xlsx',
+		'data/latest.xlsx'
 	]) {
     const sheets = loadData(t);
     console.log('importing', t, 'finished');
 
     Object.entries(sheets).forEach(([sheetName, datas]: any) => {
-			console.log(datas[0])
-			
-      const parsed = datas.map((data: any) => {
+      const parsed = datas.map((data: any, idx: number) => {
         let start_date = data["start date"];
         let end_date = data["end date"];
 
@@ -97,23 +94,25 @@ function import_sheets() {
         }
 
         return {
-          "tenant name": data["tenant name"],
-          "tenant address": data["tenant address"],
-          "tenant phone number": data["tenant phone number"],
-          "office number": data["office number"],
-          "block number": data["block number"],
-          "office size": data["office size"],
-          "floor number": data["floor number"],
-          "start date": start_date,
-          "end date": end_date,
-          "rent per month": data["rent per month"],
-          "deposit amount": data["deposit amount"],
-          "initial payment": data["initial payment"],
-          "payment interval": data["payment interval"],
-          "tenant tin number": data["tenant tin number"],
+					"id": idx ? (String(idx).toLowerCase() == "na" ? null : String(idx)) : null,
+          "tenant name": data["tenant name"] ? (String(data["tenant name"]).toLowerCase() == "na" ? null : String(data["tenant name"])) : null,
+          "tenant address": data["tenant address"] ? (String(data["tenant address"]).toLowerCase() == "na" ? null : String(data["tenant address"])) : null,
+          "tenant phone number": data["tenant phone number"] ? (String(data["tenant phone number"]).toLowerCase() == "na" ? null : String(data["tenant phone number"])) : null,
+          "office number": data["office number"] ? (String(data["office number"]).toLowerCase() == "na" ? null : String(data["office number"])) : null,
+          "block number": data["block number"] ? (String(data["block number"]).toLowerCase() == "na" ? null : String(data["block number"])) : null,
+          "office size": data["office size"] ? (String(data["office size"]).toLowerCase() == "na" ? null : String(data["office size"])) : null,
+          "floor number": data["floor number"] ? (String(data["floor number"]).toLowerCase() == "na" ? null : String(data["floor number"])) : null,
+          "start date": start_date ? (String(start_date).toLowerCase() == "na" ? null : String(start_date)) : null,
+          "end date": end_date ? (String(end_date).toLowerCase() == "na" ? null : String(end_date)) : null,
+          "rent per month": data["rent per month"] ? (String(data["rent per month"]).toLowerCase() == "na" ? null : String(data["rent per month"])) : null,
+          "deposit amount": data["deposit amount"] ? (String(data["deposit amount"]).toLowerCase() == "na" ? null : String(data["deposit amount"])) : null,
+          "initial payment": data["initial payment"] ? (String(data["initial payment"]).toLowerCase() == "na" ? null : String(data["initial payment"])) : null,
+          "payment interval": data["payment interval"] ? (String(data["payment interval"]).toLowerCase() == "na" ? null : String(data["payment interval"])) : null,
+          "tenant tin number": data["tenant tin number"] ? (String(data["tenant tin number"]).toLowerCase() == "na" ? null : String(data["tenant tin number"])) : null,
+					"remark": data["remark"] ? (String(data["remark"]).toLowerCase() == "na" ? null : String(data["remark"])) : null,
         };
       });
-
+			
       console.log('writing file', sheetName);
       writeFileSync(`data/json/${sheetName}.json`, JSON.stringify(parsed, null, 2));
       console.log('writing file', sheetName, 'finished');
@@ -124,14 +123,20 @@ function import_sheets() {
 }
 
 
-// import_sheets()
-ImportDatabase.initialize()
-	.then(createBlocks)
-	.then(add_data)
-	.then(() => {
-		ImportDatabase.destroy()
-	})
-	.catch(console.error)
+const import_data = process.argv[2] === '--import'
+console.log('importing data from excel:', import_data)
+
+if (import_data)
+	import_sheets()
+else
+	ImportDatabase.initialize()
+		.then(createBanks)
+		.then(createBlocks)
+		.then(add_data)
+		.then(() => {
+			ImportDatabase.destroy()
+		})
+		.catch(console.error)
 
 
 const blocks: any[] = [
@@ -140,6 +145,25 @@ const blocks: any[] = [
 	{ name: 'Block 3', address: '', noOfFloors: 8 , noOfBasements: 3 },
 ]
 
+
+export async function createBanks(connection: DataSource) {
+	console.log('creating banks')
+	const bankRepo = connection.getRepository(Bank)
+
+	const banks = JSON.parse(readFileSync('data/json/Banks.json', 'utf8'))
+	
+	for await (const bank of banks) {
+		await bankRepo.save({
+			name: bank.name,
+			branch: bank.branch,
+			accountNumber: bank.accountNumber,
+		})
+	}
+
+	console.log('banks created')
+
+	return connection
+}
 export async function createBlocks(connection: DataSource) {
 	console.log('creating blocks')
 	const buildingRepo = connection.getRepository(Building)
@@ -148,14 +172,14 @@ export async function createBlocks(connection: DataSource) {
 		const floors = []
 	
 		for (let i = (block.noOfBasements ?? 0); i > 0; i--) {
-			floors.push({ order: floors.length, name: `Basement ${i}` })
+			floors.push({ order: floors.length, name: `BS${i}` })
 		}
 
-		floors.push({ order: floors.length, name: `Ground` })
+		floors.push({ order: floors.length, name: `GF` })
 		
 		// floors
 		for (let i = 1; i <= (block.noOfFloors ?? 0); i++) {
-			floors.push({ order: floors.length, name: `Floor ${i}` })
+			floors.push({ order: floors.length, name: `F${i}` })
 		}
 		
 		const result = await buildingRepo.save({
@@ -169,18 +193,22 @@ export async function createBlocks(connection: DataSource) {
 		block.id = result.id
 	}
 
+	console.log('blocks created')
+
 	return connection
 }
 
 export async function add_data(connection: DataSource) {
-	const tenants1 = JSON.parse(readFileSync('data/json/Block 1 Normal tenants.json', 'utf8'))
-	const shareholders1 = JSON.parse(readFileSync('data/json/Block one shareholders.json', 'utf8'))
-
-	const tenants2 = JSON.parse(readFileSync('data/json/Block 2 Data.json', 'utf8'))
-	const shareholders2: any[] = []//JSON.parse(readFileSync('data/json/Block 2 Shareholders data.json', 'utf8'))
+	console.log('adding data')
 	
-	const tenants3 = JSON.parse(readFileSync('data/json/B3 Normal tenants .json', 'utf8'))
-	const holders3 = JSON.parse(readFileSync('data/json/Block 3 Share holders.json', 'utf8'))
+	const tenants1 = JSON.parse(readFileSync('data/json/Block 1 Normal tenants.json', 'utf8'))
+	// const shareholders1 = JSON.parse(readFileSync('data/json/Block one shareholders.json', 'utf8'))
+
+	const tenants2 = JSON.parse(readFileSync('data/json/Block 2 Normal Tenants.json', 'utf8'))
+	// const shareholders2: any[] = JSON.parse(readFileSync('data/json/Block 2 Shareholders data.json', 'utf8'))
+	
+	const tenants3 = JSON.parse(readFileSync('data/json/Block 3 Normal Tenants.json', 'utf8'))
+	// const holders3 = JSON.parse(readFileSync('data/json/Block 3 Share holders.json', 'utf8'))
 
 	const roomRepo = connection.getRepository(Room)
 	const tenantRepo = connection.getRepository(Tenant)
@@ -201,22 +229,27 @@ export async function add_data(connection: DataSource) {
 		{ data: tenants1, share: false },
 		{ data: tenants2, share: false },
 		{ data: tenants3, share: false },
-		{ data: shareholders1, share: true },
-		{ data: shareholders2, share: true },
-		{ data: holders3, share: true },
+		// { data: shareholders1, share: true },
+		// { data: shareholders2, share: true },
+		// { data: holders3, share: true },
 	]
 	// const datas = [
 	// 	{ data: tenants1, share: false },
 	// ]
 	
 	for (const { data: item, share } of datas) {
-		for await (const data of item) {
+		// const filteredData = item.slice(40, 50)
+		const filteredData = item
+		
+		for await (const data of filteredData) {
+			roomIds = []
+
 			// first create room
 			try {
 				let rooms: any = data['office number']?.toString() ?? ""
 
 				rooms = rooms.split(',').map((room: any) => room.trim())
-				
+
 				for await (const room of rooms) {
 					const result = await roomRepo.save({
 						name: room,
@@ -232,46 +265,68 @@ export async function add_data(connection: DataSource) {
 				fails.push({
 					row: rowCount,
 					type: 'room',
-					error: error.message
+					error: error.message,
+					data
 				})
 				roomCount.fail++
 			}
 
 			// then create tenant
 			try {
-				let tinNumber = data['tenant tin number']
-				
-				if (tinNumber == "የለም") {
-					tinNumber = null
-				}
-				
-				const result = await tenantRepo.save({
-					name: data['tenant name'],
-					phone: data['tenant phone number'],
-					address: data['tenant address'],
-					isShareholder: share,
-					tinNumber,
-				})
-				tenantId = result.id
-				tenantCount.pass++
-			} catch (error: any) {
+				// if tenant name exists in database, skip
 				const tenant = await tenantRepo.findOne({
-					where: { id: tenantId }
+					where: { name: data['tenant name'] }
 				})
-				
+
+				if (tenant) {
+					tenantId = tenant.id
+				} else {
+					let tinNumber = data['tenant tin number']
+					
+					if (tinNumber == "የለም") {
+						tinNumber = null
+					}
+
+					// parse phone
+					// split by comma, take the first one and remove all whitespaces
+					let phone = data['tenant phone number']
+
+					try {
+						phone = phone.split(',')[0]?.replaceAll(" ", "").trim()
+					} catch {}
+					
+					const result = await tenantRepo.save({
+						name: data['tenant name'],
+						phone,
+						address: data['tenant address'],
+						isShareholder: share,
+						tinNumber,
+					})
+					tenantId = result.id
+					tenantCount.pass++
+				}
+			} catch (error: any) {
+				tenantId = -1
 				fails.push({
 					row: rowCount,
 					type: 'tenant',
-					error: error.message
+					error: error.message,
+					data
 				})
 				tenantCount.fail++
 			}
 
-			// if (roomId == -1 || tenantId == -1) {
-			// 	skipped++
-			// 	rowCount++
-			// 	continue
-			// }
+			if (data['tenant name'] == null) {
+				console.log(data['remark'])
+				console.log(tenantId)
+				tenantId = -1
+			}
+			
+			if (tenantId == -1) {
+				skipped++
+				rowCount++
+				continue
+			}
 			
 			// then create lease
 			try {
@@ -283,12 +338,12 @@ export async function add_data(connection: DataSource) {
 					startDate: new Date(data['start date']),
 					endDate: new Date(data['end date']),
 					initialPayment: {
-						amount: data['initial payment'],
+						amount: Number(data['initial payment']),
 						paymentDate: new Date()
 					},
 					paymentIntervalInMonths: data['payment interval'],
 					paymentAmountPerMonth: {
-						base: data['rent per month'],
+						base: Number(data['rent per month']),
 						utility: 0,
 					},
 					active: true,
@@ -305,9 +360,9 @@ export async function add_data(connection: DataSource) {
 				const schedules = generatePaymentSchedule({
 					startDate: new Date(data['start date']),
 					endDate: new Date(data['end date']),
-					paymentIntervalInMonths: data['payment interval'],
+					paymentIntervalInMonths: Number(data['payment interval']),
 					paymentAmountPerMonth: {
-						base: data['rent per month'],
+						base: Number(data['rent per month']),
 						utility: 0,
 					},
 					id: leaseId
@@ -331,11 +386,11 @@ export async function add_data(connection: DataSource) {
 				
 				leaseCount.pass++
 			} catch (error: any) {
-				console.log(error)
 				fails.push({
 					row: rowCount,
 					type: 'lease',
-					error: error.message
+					error: error.message,
+					data
 				})
 				leaseCount.fail++
 			}
@@ -351,5 +406,7 @@ export async function add_data(connection: DataSource) {
 	console.log('tenant count:', tenantCount)
 	console.log('lease count:', leaseCount)
 
+	writeFileSync(`data/failed/fails.json`, JSON.stringify(fails, null, 2))
+	
 	return connection
 }

@@ -6,6 +6,42 @@ import { LessThan } from "typeorm"
 export const PaymentRepository = Database.getRepository(Payment)
 export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
 
+export async function getPayments({
+    skip = 0,
+    take = 10,
+    search = "",
+    isVerified
+  }: {
+    skip?: number;
+    take?: number;
+    search?: string;
+    isVerified?: string; // "true", "false", or undefined
+  }): Promise<[Payment[], number]> {
+    const query = PaymentRepository.createQueryBuilder("payment")
+        .leftJoinAndSelect("payment.bank", "bank")
+
+    // Apply search filter on name or phone
+    if (search) {
+    //   query.where("payment.referenceNumber LIKE :search OR tenant.phone LIKE :search", { 
+      query.where("payment.referenceNumber LIKE :search", { 
+        search: `%${search}%` 
+      });
+    }
+  
+    // Apply shareholder filter
+    if (isVerified === "true" || isVerified === "false") {
+      query.andWhere("tenant.isVerified = :isVerified", { 
+        isVerified: isVerified === "true" 
+      });
+    }
+  
+    // Apply pagination
+    query.skip(skip).take(take);
+  
+    // Execute query and return results with total count
+    return query.getManyAndCount();
+  }
+
 export async function getPayment(id?: number) {
     if (id) {
         return PaymentRepository.findOne({

@@ -9,11 +9,13 @@ export async function getTenant({
     take = 10,
     search = "",
     isShareholder,
+    officeNumber,
   }: {
     skip?: number;
     take?: number;
     search?: string;
     isShareholder?: string; // "true", "false", or undefined
+    officeNumber?: string;
   }): Promise<[Tenant[], number]> {
     const query = TenantRepository.createQueryBuilder("tenant");
   
@@ -23,7 +25,17 @@ export async function getTenant({
         search: `%${search}%` 
       });
     }
-  
+
+    // Apply office filter
+    if (officeNumber && officeNumber !== "all") {
+      query
+        .leftJoinAndSelect("tenant.leases", "leases")
+        .leftJoinAndSelect("rooms", "rooms", "FIND_IN_SET(rooms.id, leases.roomIds)")
+        .andWhere("rooms.name = :officeNumber", {
+          officeNumber,
+        });
+    }
+
     // Apply shareholder filter
     if (isShareholder === "true" || isShareholder === "false") {
       query.andWhere("tenant.isShareholder = :isShareholder", { 

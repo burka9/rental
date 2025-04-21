@@ -4,9 +4,9 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@
 import { useTenantStore } from "@/lib/store/tenants";
 import { format, subMonths, addMonths } from "date-fns";
 import { useEffect, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { toEthiopianDateString } from "@/lib/utils";
 
 const ReportPage = () => {
   const { basicReport, fetchBasicReport } = useTenantStore();
@@ -89,8 +89,9 @@ const ReportPage = () => {
           <CardTitle>Upcoming Payments</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* filter */}
           <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
-            <div>
+            {/* <div>
               <Label htmlFor="startDate">Start Date</Label>
               <Input
                 id="startDate"
@@ -109,7 +110,7 @@ const ReportPage = () => {
                 onChange={(e) => setEndDate(e.target.value)}
                 className="mt-1"
               />
-            </div>
+            </div> */}
           </div>
           <Table>
             <TableHeader>
@@ -117,6 +118,7 @@ const ReportPage = () => {
                 <TableHead>Tenant Name</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Payment Amount</TableHead>
+                <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -124,8 +126,9 @@ const ReportPage = () => {
                 filteredPayments.map((payment, index) => (
                   <TableRow key={index}>
                     <TableCell>{payment.tenantName}</TableCell>
-                    <TableCell>{format(new Date(payment.dueDate), "yyyy-MM-dd")}</TableCell>
+                    <TableCell>{toEthiopianDateString(new Date(payment.dueDate))}</TableCell>
                     <TableCell>ETB {payment.paymentAmount.toLocaleString()}</TableCell>
+                    <TableCell><Link className="text-sm bg-gray-500 rounded py-1 px-3 text-white" href={`/dashboard/leases/view?id=${payment.leaseId}`}>View</Link></TableCell>
                   </TableRow>
                 ))
               ) : (

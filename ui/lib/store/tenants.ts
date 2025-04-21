@@ -6,18 +6,21 @@ import { axios } from "../axios"
 type StoreState = {
   tenants: Tenant[]
   totalTenants: number
-  currentPage: number
-  pageSize: number
+  totalPayments: number
+  tenantCurrentPage: number
+  tenantPageSize: number
+  paymentCurrentPage: number
+  paymentPageSize: number
   leases: Lease[]
   payments: Payment[]
   basicReport?: BasicReport
 }
 
 type StoreAction = {
-  fetchTenants: (page?: number, limit?: number, search?: string, isShareholder?: string) => Promise<Tenant[]>
+  fetchTenants: (page?: number, limit?: number, search?: string, isShareholder?: string, officeNumber?: string) => Promise<Tenant[]>
   fetchTenant: (id: number) => Promise<Tenant | null>
-  createTenant: (tenant: Partial<Tenant>) => Promise<boolean>
-  updateTenant: (tenant: Partial<Tenant>) => Promise<Tenant | null>
+  createTenant: (tenant: FormData) => Promise<boolean>
+  updateTenant: (tenant: FormData) => Promise<Tenant | null>
   deleteTenant: (id: number) => Promise<boolean>
   fetchLeases: () => Promise<Lease[]>
   fetchLease: (id: number) => Promise<Lease | null>
@@ -25,6 +28,11 @@ type StoreAction = {
   updateLease: (lease: Partial<Lease>) => Promise<Lease | null>
   deleteLease: (id: number) => Promise<boolean>
   fetchBasicReport: () => Promise<BasicReport>
+  fetchPayments: (page?: number, limit?: number, search?: string, isVerified?: string) => Promise<Payment[]>
+  fetchPayment: (id: number) => Promise<Payment | null>
+  createPayment: (payment: Partial<Payment>) => Promise<boolean>
+  updatePayment: (payment: Partial<Payment>) => Promise<Payment | null>
+  deletePayment: (id: number) => Promise<boolean>
 }
 
 type Store = StoreState & StoreAction
@@ -32,9 +40,12 @@ type Store = StoreState & StoreAction
 export const useTenantStore = create<Store>((set) => ({
   tenants: [],
   totalTenants: 0,
-  currentPage: 1,
-  pageSize: 10,
-  async fetchTenants(page = 1, limit = 10, search = "", isShareholder = "all") {
+  totalPayments: 0,
+  tenantCurrentPage: 1,
+  tenantPageSize: 10,
+  paymentCurrentPage: 1,
+  paymentPageSize: 10,
+  async fetchTenants(page = 1, limit = 10, search = "", isShareholder = "all", officeNumber = "all") {
 		console.log('fetch tenants: ', search, isShareholder)
 		
     const { user } = useStore.getState()
@@ -49,6 +60,7 @@ export const useTenantStore = create<Store>((set) => ({
           limit,
           search: search || undefined,
           isShareholder: isShareholder !== "all" ? isShareholder : undefined,
+          officeNumber: officeNumber !== "all" ? officeNumber : undefined
         },
       })
 
@@ -56,8 +68,8 @@ export const useTenantStore = create<Store>((set) => ({
       set({
         tenants,
         totalTenants: pagination.total,
-        currentPage: pagination.page,
-        pageSize: pagination.limit,
+        tenantCurrentPage: pagination.page,
+        tenantPageSize: pagination.limit,
       })
       return tenants
     } catch (err) {
@@ -81,13 +93,14 @@ export const useTenantStore = create<Store>((set) => ({
       return null
     }
   },
-  createTenant: async (tenant: Partial<Tenant>) => {
+  createTenant: async (tenant: FormData) => {
     const { user } = useStore.getState()
 
     try {
       const res = await axios.post('/tenant', tenant, {
         headers: {
-          Authorization: `Bearer ${user?.token}`
+          Authorization: `Bearer ${user?.token}`,
+          "Content-Type": "multipart/form-data"
         },
       })
 
@@ -101,13 +114,14 @@ export const useTenantStore = create<Store>((set) => ({
       return false
     }
   },
-  updateTenant: async (tenant: Partial<Tenant>) => {
+  updateTenant: async (tenant: FormData) => {
     const { user } = useStore.getState()
 
     try {
-      const res = await axios.put(`/tenant/${tenant.id}`, tenant, {
+      const res = await axios.post('/tenant', tenant, {
         headers: {
-          Authorization: `Bearer ${user?.token}`
+          Authorization: `Bearer ${user?.token}`,
+          "Content-Type": "multipart/form-data"
         },
       })
 
@@ -249,6 +263,111 @@ export const useTenantStore = create<Store>((set) => ({
     } catch (err) {
       console.error(err)
       return []
+    }
+  },
+
+  async fetchPayments(page = 1, limit = 10, search = "", isVerified = "all") {
+		console.log('fetch payments: ', search, isVerified)
+		
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.get('/payment', {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+        params: {
+          page,
+          limit,
+          search: search || undefined,
+          isVerified: isVerified !== "all" ? isVerified : undefined,
+        },
+      })
+
+      const { payments, pagination } = res.data.data
+      set({
+        payments,
+        totalPayments: pagination.total,
+        paymentCurrentPage: pagination.page,
+        paymentPageSize: pagination.limit,
+      })
+      return payments
+    } catch (err) {
+      console.log(err)
+      set({ payments: [], totalPayments: 0 })
+      return []
+    }
+  },
+  fetchPayment: async (id: number) => {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.get(`/payment/un/${id}`, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+      })
+      return res.data.data as Payment
+    } catch (err) {
+      console.log(err)
+      return null
+    }
+  },
+  createPayment: async (payment: Partial<Payment>) => {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.post('/payment', payment, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+      })
+
+      set(state => ({
+        payments: [...state.payments, res.data.data],
+      }))
+      return res.data.success
+    } catch (err) {
+      console.log(err)
+      return false
+    }
+  },
+  updatePayment: async (payment: Partial<Payment>) => {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.put(`/payment/${payment.id}`, payment, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+      })
+
+      set(state => ({
+        payments: state.payments.map(p => p.id === res.data.data.id ? res.data.data : p),
+      }))
+      return res.data.data as Payment
+    } catch (err) {
+      console.log(err)
+      return null
+    }
+  },
+  deletePayment: async (id: number) => {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.delete(`/payment/${id}`, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+      })
+
+      set(state => ({
+        payments: state.payments.filter(payment => payment.id !== id),
+      }))
+      return res.data.success
+    } catch (err) {
+      console.log(err)
+      return false
     }
   },
 }))

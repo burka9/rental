@@ -16,6 +16,8 @@ export type BasicReport = {
 		totalAmount: number
 	}
 	upcomingPayment: {
+		tenantId: number
+		leaseId: number
 		tenantName: string
 		dueDate: Date
 		paymentAmount: number
@@ -57,6 +59,8 @@ export async function getBasicReports(): Promise<BasicReport> {
 			totalAmount: overduePayments.reduce((total, payment) => Number(total) + Number(payment.payableAmount), 0)
 		},
 		upcomingPayment: upcomingPayments.map(payment => ({
+			leaseId: payment.lease.id,
+			tenantId: payment.lease.tenant.id,
 			tenantName: payment.lease.tenant.name,
 			dueDate: payment.dueDate,
 			paymentAmount: Number(payment.payableAmount)

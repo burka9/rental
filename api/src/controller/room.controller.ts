@@ -4,9 +4,9 @@ import { Room } from "../entities/Room.entity"
 
 export const RoomRepository = Database.getRepository(Room)
 
-export async function getRooms(ids: number[]) {
+export async function getRooms(ids?: number[]) {
 	const rooms = await RoomRepository.find({
-		where: { id: In(ids) }
+		where: ids ? { id: In(ids) }: {}
 	})
 	return rooms
 }

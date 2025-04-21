@@ -42,6 +42,7 @@ export default function (): Router {
       const limit = parseInt(req.query.limit as string) || 10; // Default to 10 rows per page
       const search = (req.query.search as string) || ""; // Search term for name or phone
       const isShareholder = (req.query.isShareholder as string) || "all"; // Filter by shareholder status
+      const officeNumber = (req.query.officeNumber as string) || "all"; // Filter by office
       const skip = (page - 1) * limit;
 
       // Call getTenant with all parameters
@@ -49,7 +50,8 @@ export default function (): Router {
         skip, 
         take: limit, 
         search, 
-        isShareholder: isShareholder === "all" ? undefined : isShareholder 
+        isShareholder: isShareholder === "all" ? undefined : isShareholder,
+        officeNumber
       });
 
       res.json({
@@ -163,7 +165,7 @@ export default function (): Router {
     });
   });
 
-  router.put("/:id", async (req, res) => {
+  router.put("/:id", upload.single("agreementFile"), async (req, res) => {
     const tenant = await updateTenant(Number(req.params.id), req.body);
     res.json({
       success: true,

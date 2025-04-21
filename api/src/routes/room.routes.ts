@@ -1,12 +1,15 @@
 import { Router } from "express"
-import { createRoom, deleteRoom, getRoom, updateRoom } from "../controller/room.controller"
+import { createRoom, deleteRoom, getRoom, getRooms, updateRoom } from "../controller/room.controller"
 import { Room } from "../entities/Room.entity"
 export default function(): Router {
 	const router = Router()
 
 	router.get("/", async (req, res) => {
-		const rooms = await getRoom()
+		const ids = req.query.ids ? (req.query.ids as string).split(",").map(Number) : undefined
 
+		const rooms = await getRooms(ids)
+		console.log(ids)
+		
 		res.json({
 			success: true,
 			message: "Rooms fetched successfully",

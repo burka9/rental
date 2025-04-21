@@ -15,9 +15,6 @@ export class Bank {
     @Column()
     accountNumber: string;
 
-    @Column()
-    ownerName: string;
-
     @OneToMany(() => Payment, payment => payment.bank)
     payments: Payment[];
 } 

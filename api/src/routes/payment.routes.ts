@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import multer from 'multer'
 import path from 'path'
-import { createPayment, verifyPayment, getPayment, getOverduePaymentSchedule, changeStatus } from '../controller/payment.controller'
+import { createPayment, verifyPayment, getPayment, getOverduePaymentSchedule, changeStatus, getPayments } from '../controller/payment.controller'
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -36,6 +36,45 @@ const upload = multer({
 export default function(): Router {
 	const router = Router()
 
+	// Get all payments
+	router.get("/", async (req, res) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1; // Default to page 1
+			const limit = parseInt(req.query.limit as string) || 10; // Default to 10 rows per page
+			const search = (req.query.search as string) || ""; // Search term for name or phone
+			const isVerified = (req.query.isVerified as string) || "all"; // Filter by shareholder status
+			const skip = (page - 1) * limit;
+
+			// Call getTenant with all parameters
+			const [payments, total] = await getPayments({ 
+				skip, 
+				take: limit, 
+				search, 
+				isVerified: isVerified === "all" ? undefined : isVerified 
+			});
+
+			res.json({
+				success: true,
+				message: "Payments fetched successfully",
+				data: {
+					payments,
+					pagination: {
+						page,
+						limit,
+						total,
+						totalPages: Math.ceil(total / limit),
+					},
+				},
+			});
+		} catch (error: any) {
+			res.status(500).json({
+				success: false,
+				message: "Error fetching payments",
+				error: error.message,
+			});
+		}
+	});
+	
 	// Get payments
 	router.get('/un/:id', async (req, res) => {
 			try {
@@ -72,7 +111,7 @@ export default function(): Router {
 	})
 
 	// Create payment with bank slip
-	router.post('/', upload.single('bankSlip'), async (req, res) => {
+	router.post('/', upload.single('bankSlipAttachment'), async (req, res) => {
 			try {
 					const paymentData = req.body
 

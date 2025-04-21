@@ -43,7 +43,7 @@ export type Lease = {
 	startDate: Date;
 	endDate: Date;
 	tenantId: number;
-	roomsIds: number[];
+	roomIds: number[];
 	paymentType: "PREPAID" | "POSTPAID";
 	paymentAmountPerMonth: {
 			base: number;
@@ -85,8 +85,9 @@ export type Payment = {
 	bankId: number;
 	referenceNumber: number;
 	notes: string;
-	verified: boolean;
-	verificationDate: Date;
+	isVerified: boolean;
+	verifiedAt: Date;
+	verifiedBy: string;
 	bankSlipPath: string
 	invoicePath: string
 	lease: Lease;
@@ -98,7 +99,6 @@ export type Bank = {
 	name: string;
 	branch: string;
 	accountNumber: string;
-	ownerName: string;
 	payments?: Payment;
 }
 
@@ -111,6 +111,8 @@ export type BasicReport = {
 		totalAmount: number
 	}
 	upcomingPayment: {
+		tenantId: string
+		leaseId: string
 		tenantName: string
 		dueDate: Date
 		paymentAmount: number
