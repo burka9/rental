@@ -1,4 +1,5 @@
 'use client'
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { useTenantStore } from "@/lib/store/tenants";
@@ -7,6 +8,10 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { toEthiopianDateString } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ChevronLeftIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const ReportPage = () => {
   const { basicReport, fetchBasicReport } = useTenantStore();
@@ -23,7 +28,7 @@ const ReportPage = () => {
 
   useEffect(() => {
     fetchBasicReport();
-  }, [fetchBasicReport]);
+  }, [fetchBasicReport]); // Run only on mount
 
   // Filter upcoming payments based on date range
   const filteredPayments = basicReport?.upcomingPayment
@@ -47,122 +52,168 @@ const ReportPage = () => {
 
   const totalPaymentPages = Math.ceil((basicReport?.upcomingPayment?.length || 0) / paymentPageSize);
 
-  return !basicReport ? <>Loading</> : (
-    <div className="p-6 space-y-6">
-      {/* Summary Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Rooms</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">{basicReport.totalRooms}</CardContent>
-        </Card>
+  return !basicReport ? (
+    <div className="flex items-center justify-center h-screen">
+      <p className="text-lg text-gray-600">Loading...</p>
+    </div>
+  ) : (
+    <div className="container mx-auto py-8">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard">
+            <Button variant="ghost" size="sm" className="p-2">
+              <ChevronLeftIcon className="h-4 w-4" />
+            </Button>
+          </Link>
+          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+        </div>
+      </div>
 
-        <Card>
+      <div className="flex flex-col gap-8">
+        {/* Summary Section */}
+        <Card className="border-none shadow-md rounded-lg">
           <CardHeader>
-            <CardTitle>Vacant Rooms</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">{basicReport.vacantRooms}</CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Tenants</CardTitle>
-          </CardHeader>
-          <CardContent className="text-2xl font-bold">{basicReport.totalTenants}</CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Overdue Payments</CardTitle>
+            <CardTitle className="text-xl font-semibold text-gray-900">Summary</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-lg font-semibold">Tenants: {basicReport.overduePayments?.totalTenants}</p>
-            <p className="text-lg font-semibold">Amount: ETB {basicReport.overduePayments?.totalAmount.toLocaleString()}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base font-medium text-gray-700">Total Rooms</CardTitle>
+                </CardHeader>
+                <CardContent className="text-2xl font-bold text-gray-900">{basicReport.totalRooms}</CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base font-medium text-gray-700">Vacant Rooms</CardTitle>
+                </CardHeader>
+                <CardContent className="text-2xl font-bold text-gray-900">{basicReport.vacantRooms}</CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base font-medium text-gray-700">Total Tenants</CardTitle>
+                </CardHeader>
+                <CardContent className="text-2xl font-bold text-gray-900">{basicReport.totalTenants}</CardContent>
+              </Card>
+
+              <Card className="border-none shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base font-medium text-gray-700">Overdue Payments</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold text-gray-900">
+                    Tenants: {basicReport.overduePayments?.totalTenants}
+                  </p>
+                  <p className="text-lg font-semibold text-gray-900">
+                    Amount: ETB {basicReport.overduePayments?.totalAmount.toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Upcoming Payments Table */}
+        <Card className="border-none shadow-md rounded-lg">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold text-gray-900">Upcoming Payments</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Date Range Filter */}
+            <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+              <div>
+                <Label htmlFor="startDate" className="text-gray-700">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="mt-1 border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <Label htmlFor="endDate" className="text-gray-700">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="mt-1 border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-gray-700">Tenant Name</TableHead>
+                  <TableHead className="text-gray-700">Due Date</TableHead>
+                  <TableHead className="text-gray-700">Payment Amount</TableHead>
+                  <TableHead className="text-gray-700">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPayments.length > 0 ? (
+                  filteredPayments.map((payment, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="text-gray-900">{payment.tenantName}</TableCell>
+                      <TableCell className="text-gray-900">{toEthiopianDateString(new Date(payment.dueDate))}</TableCell>
+                      <TableCell className="text-gray-900">ETB {payment.paymentAmount.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/dashboard/leases/view?id=${payment.leaseId}`}
+                          className="text-sm bg-blue-600 text-white rounded py-1 px-3 hover:bg-blue-700 transition-colors"
+                        >
+                          View
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-gray-500">
+                      {startDate || endDate ? "No payments found in selected date range" : "No upcoming payments"}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPaymentPage(Math.max(currentPaymentPage - 1, 1))}
+                disabled={currentPaymentPage === 1}
+                className={cn(
+                  "border-gray-200 text-gray-700 hover:bg-gray-50",
+                  currentPaymentPage === 1 && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                Previous
+              </Button>
+              <span className="text-gray-700">
+                Page {currentPaymentPage} of {totalPaymentPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPaymentPage(Math.min(currentPaymentPage + 1, totalPaymentPages))}
+                disabled={currentPaymentPage === totalPaymentPages}
+                className={cn(
+                  "border-gray-200 text-gray-700 hover:bg-gray-50",
+                  currentPaymentPage === totalPaymentPages && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                Next
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Upcoming Payments Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Payments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* filter */}
-          <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
-            {/* <div>
-              <Label htmlFor="startDate">Start Date</Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1"
-              />
-            </div>
-            <div>
-              <Label htmlFor="endDate">End Date</Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="mt-1"
-              />
-            </div> */}
-          </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tenant Name</TableHead>
-                <TableHead>Due Date</TableHead>
-                <TableHead>Payment Amount</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPayments.length > 0 ? (
-                filteredPayments.map((payment, index) => (
-                  <TableRow key={index}>
-                    <TableCell>{payment.tenantName}</TableCell>
-                    <TableCell>{toEthiopianDateString(new Date(payment.dueDate))}</TableCell>
-                    <TableCell>ETB {payment.paymentAmount.toLocaleString()}</TableCell>
-                    <TableCell><Link className="text-sm bg-gray-500 rounded py-1 px-3 text-white" href={`/dashboard/leases/view?id=${payment.leaseId}`}>View</Link></TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={3} className="text-center text-gray-500">
-                    {startDate || endDate ? "No payments found in selected date range" : "No upcoming payments"}
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPaymentPage(Math.max(currentPaymentPage - 1, 1))}
-              disabled={currentPaymentPage === 1}
-            >
-              Previous
-            </Button>
-            <span>
-              Page {currentPaymentPage} of {totalPaymentPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPaymentPage(Math.min(currentPaymentPage + 1, totalPaymentPages))}
-              disabled={currentPaymentPage === totalPaymentPages}
-            >
-              Next
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 };

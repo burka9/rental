@@ -516,6 +516,7 @@ export default function ViewPayments() {
               </div>
             </form>
           </Form>
+          <div className="hidden">{lease?.id}</div>
         </div>
       )}
     </>

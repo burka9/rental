@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 import { useEffect } from "react"
 import { useTenantStore } from "@/lib/store/tenants"
@@ -29,8 +30,8 @@ export default function Payments() {
       </div>
       <div className="flex gap-4">
         <DataTable
-					columns={columns}
-					data={payments}
+					columns={columns as any}
+					data={payments as any}
           totalItems={totalPayments}
           pageSize={paymentPageSize}
           currentPage={paymentCurrentPage}

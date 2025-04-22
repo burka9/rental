@@ -2,7 +2,7 @@
 
 import { Lease, Room } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -10,7 +10,7 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Link from "next/link";
-import { ChevronLeftIcon } from "lucide-react";
+import { ChevronLeftIcon, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -22,6 +22,8 @@ import { columns as roomsColumn } from "./roomsColumn";
 import { columns } from "./payment-schedule/columns";
 import { toEthiopian, toGregorian } from '@/lib/date-converter';
 import { usePropertyStore } from "@/lib/store/property";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 // Ethiopian month names
 const monthNames = [
@@ -47,31 +49,36 @@ const dateForm = z.object({
   year: z.coerce.number().optional(),
 });
 
+const roomForm = z.object({
+  buildingId: z.string().min(1, "Building is required"),
+  roomId: z.string().min(1, "Room is required"),
+});
+
 const formSchema = z.object({
   startDate: z.array(dateForm).min(1, "Start date is required"),
   endDate: z.array(dateForm).min(1, "End date is required"),
   tenantId: z.coerce.number().min(1, "Tenant is required"),
-  paymentType: z.enum(["PREPAID", "POSTPAID"]),
   paymentAmountPerMonth: z.object({
     base: z.coerce.number().min(0, "Base amount is required"),
     utility: z.coerce.number().min(0, "Utility amount is required"),
   }),
   deposit: z.coerce.number().min(0, "Deposit amount is required"),
   paymentIntervalInMonths: z.coerce.number().min(1, "Payment interval is required"),
-  initialPayment: z.object({
-    amount: z.coerce.number().min(0, "Initial payment amount is required"),
-    paymentDate: z.string().min(1, "Initial payment date is required"),
-  }).optional(),
   lateFee: z.coerce.number().min(0, "Late fee is required"),
   lateFeeType: z.enum(["PERCENTAGE", "FIXED"]),
-  lateFeeGracePeriodInDays: z.coerce.number().min(0, "Grace period is required"),
+  rooms: z.array(roomForm).optional(),
 });
 
 export default function ViewLease() {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState(false);
   const [lease, setLease] = useState<Lease | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [rentedRooms, setRentedRooms] = useState<Room[]>([]);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { fetchLease, createLease, updateLease, deleteLease, tenants, fetchTenants } = useTenantStore();
+  const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     mode: "onChange",
@@ -80,17 +87,12 @@ export default function ViewLease() {
       startDate: [{ day: undefined, month: undefined, year: undefined }],
       endDate: [{ day: undefined, month: undefined, year: undefined }],
       tenantId: 0,
-      paymentType: "PREPAID",
-      paymentAmountPerMonth: {
-        base: 0,
-        utility: 0,
-      },
+      paymentAmountPerMonth: { base: 0, utility: 0 },
       deposit: 0,
       paymentIntervalInMonths: 1,
-      initialPayment: undefined,
       lateFee: 0,
       lateFeeType: "FIXED",
-      lateFeeGracePeriodInDays: 0,
+      rooms: [{}],
     },
   });
 
@@ -104,41 +106,50 @@ export default function ViewLease() {
     name: "endDate",
   });
 
-  const searchParams = useSearchParams();
-  const { fetchLease,
-    // createLease,
-    // updateLease,
-    deleteLease,
-    tenants,
-    fetchTenants
-  } = useTenantStore();
-
-  const { fetchRooms } = usePropertyStore();
-
-  const [rentedRooms, setRentedRooms] = useState<Room[]>([]);
-
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "rooms",
+  });
+  
+  // Fetch buildings and rooms only once on component mount
   useEffect(() => {
-    if (!lease) {
+    fetchBuildings();
+    fetchRooms();
+  }, [fetchBuildings, fetchRooms]);
+
+  // Fetch rented rooms only when lease.roomIds changes
+  const fetchRentedRooms = useCallback(async () => {
+    if (!lease || !lease.roomIds || lease.roomIds.length === 0) {
       setRentedRooms([]);
       return;
     }
-    fetchRooms(lease.roomIds).then(rooms => {
-      setRentedRooms(rooms);
-      console.log(rooms)
-    }).catch(error => {
+    try {
+      const fetchedRooms = await fetchRooms(lease.roomIds);
+      setRentedRooms(fetchedRooms);
+    } catch (error) {
       console.error("Error fetching rooms:", error);
       setRentedRooms([]);
-    });
+    }
   }, [lease, fetchRooms]);
 
   useEffect(() => {
+    if (!lease || !lease.id) return; // Prevent fetching if lease is not loaded
+    fetchRentedRooms();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lease?.id, fetchRooms]); // Depend on lease.id instead of lease.roomIds
+
+  useEffect(() => {
     fetchTenants();
-  }, [fetchTenants, fetchRooms]);
+  }, [fetchTenants]);
 
   useEffect(() => {
     const id = searchParams.get("id");
+    const tenantId = searchParams.get("tenantId");
     if (!id || isNaN(Number(id))) {
-      setCreating(true);
+      if (tenantId && !isNaN(Number(tenantId))) {
+        setCreating(true);
+        form.setValue("tenantId", Number(tenantId));
+      }
       return;
     }
 
@@ -151,14 +162,13 @@ export default function ViewLease() {
         }
         setLease(data);
 
-        // Convert Gregorian to Ethiopian dates
         const startDateValue = data.startDate && !isNaN(new Date(data.startDate).getTime())
           ? (() => {
               const gregDate = new Date(data.startDate);
               try {
                 const [ethYear, ethMonth, ethDay] = toEthiopian(
                   gregDate.getFullYear(),
-                  gregDate.getMonth() + 1, // 1-based
+                  gregDate.getMonth() + 1,
                   gregDate.getDate()
                 );
                 return [{ year: ethYear, month: ethMonth, day: ethDay }];
@@ -186,28 +196,29 @@ export default function ViewLease() {
             })()
           : [{ day: undefined, month: undefined, year: undefined }];
 
+        // Pre-populate rooms with selected buildings and rooms
+        const selectedRooms = data.roomIds?.map((roomId: number) => {
+          const room = rooms.find((r) => String(r.id) === String(roomId));
+
+          return {
+            buildingId: room?.buildingId?.toString() ?? "",
+            roomId: roomId.toString(),
+          };
+        }) ?? [{}];
+
         form.reset({
           startDate: startDateValue,
           endDate: endDateValue,
           tenantId: data.tenantId || 0,
-          paymentType: data.paymentType || "PREPAID",
           paymentAmountPerMonth: {
             base: data.paymentAmountPerMonth?.base || 0,
             utility: data.paymentAmountPerMonth?.utility || 0,
           },
           deposit: data.deposit || 0,
           paymentIntervalInMonths: data.paymentIntervalInMonths || 1,
-          initialPayment: data.initialPayment && data.initialPayment.amount && data.initialPayment.paymentDate
-            ? {
-                amount: data.initialPayment.amount || 0,
-                paymentDate: !isNaN(new Date(data.initialPayment.paymentDate).getTime())
-                  ? new Date(data.initialPayment.paymentDate).toISOString().split("T")[0]
-                  : "",
-              }
-            : undefined,
           lateFee: data.lateFee || 0,
           lateFeeType: data.lateFeeType || "FIXED",
-          lateFeeGracePeriodInDays: data.lateFeeGracePeriodInDays || 0,
+          rooms: selectedRooms,
         });
       })
       .catch(error => {
@@ -215,10 +226,14 @@ export default function ViewLease() {
         toast.error("Failed to load lease. Please try again.");
         setCreating(true);
       });
-  }, [searchParams, fetchLease, router, form]);
+  }, [searchParams, fetchLease, form, fetchTenants, rooms]);
+
+  useEffect(() => {
+    setCreating(searchParams.get("create") === "true");
+    setEditing(searchParams.get("edit") === "true");
+  }, [searchParams]);
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    // Convert Ethiopian date to Gregorian ISO string
     const startDate = values.startDate[0].year && values.startDate[0].month && values.startDate[0].day
       ? (() => {
           try {
@@ -227,7 +242,7 @@ export default function ViewLease() {
               values.startDate[0].month,
               values.startDate[0].day
             );
-            return new Date(gregYear, gregMonth - 1, gregDay).toISOString();
+            return new Date(gregYear, gregMonth - 1, gregDay);
           } catch (error) {
             console.error("Error converting startDate to Gregorian:", error);
             return undefined;
@@ -243,7 +258,7 @@ export default function ViewLease() {
               values.endDate[0].month,
               values.endDate[0].day
             );
-            return new Date(gregYear, gregMonth - 1, gregDay).toISOString();
+            return new Date(gregYear, gregMonth - 1, gregDay);
           } catch (error) {
             console.error("Error converting endDate to Gregorian:", error);
             return undefined;
@@ -256,54 +271,48 @@ export default function ViewLease() {
       return;
     }
 
-    // if (creating) {
-    //   createLease({
-    //     ...values,
-    //     startDate: startDate,
-    //     endDate: endDate,
-    //     initialPayment: values.initialPayment ? {
-    //       ...values.initialPayment,
-    //       paymentDate: new Date(values.initialPayment.paymentDate),
-    //     } : undefined,
-    //   })
-    //     .then(success => {
-    //       if (success) {
-    //         router.push("/dashboard/leases?message=Lease created successfully");
-    //       } else {
-    //         toast.error("Failed to create lease");
-    //       }
-    //     })
-    //     .catch(error => {
-    //       console.error(error);
-    //       toast.error("Failed to create lease");
-    //     });
-    // } else if (editing && lease) {
-    //   updateLease({
-    //     ...values,
-    //     id: lease.id,
-    //     startDate,
-    //     endDate,
-    //     initialPayment: values.initialPayment ? {
-    //       ...values.initialPayment,
-    //       paymentDate: new Date(values.initialPayment.paymentDate),
-    //     } : undefined,
-    //   })
-    //     .then(data => {
-    //       if (data === null) {
-    //         toast.error("Failed to update lease");
-    //         return;
-    //       }
-    //       toast.success("Lease updated successfully");
-    //       setEditing(false);
-    //     })
-    //     .catch(error => {
-    //       console.error(error);
-    //       toast.error("Failed to update lease");
-    //     });
-    // }
-  };
+    const leaseData = {
+      ...values,
+      startDate: startDate,
+      endDate: endDate,
+      paymentType: "PREPAID" as const,
+      lateFeeGracePeriodInDays: 0,
+      roomIds: values.rooms?.map((room) => Number(room.roomId)) ?? [],
+    };
 
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    if (creating) {
+      createLease(leaseData)
+        .then(success => {
+          if (success) {
+            router.push("/dashboard/leases?message=Lease created successfully");
+          } else {
+            toast.error("Failed to create lease");
+          }
+        })
+        .catch(error => {
+          console.error(error);
+          toast.error("Failed to create lease");
+        });
+    } else if (editing && lease) {
+      updateLease({
+        ...leaseData,
+        id: lease.id,
+      })
+        .then(data => {
+          if (data === null) {
+            toast.error("Failed to update lease");
+            return;
+          }
+          setLease(data);
+          toast.success("Lease updated successfully");
+          setEditing(false);
+        })
+        .catch(error => {
+          console.error(error);
+          toast.error("Failed to update lease");
+        });
+    }
+  };
 
   const handleDelete = () => {
     if (!lease) return;
@@ -332,7 +341,6 @@ export default function ViewLease() {
     return Array.from({ length: dayCount }, (_, idx) => idx + 1);
   };
 
-  // Generate Ethiopian years (current year ±25 years)
   const getEthiopianYears = () => {
     const currentGregYear = new Date().getFullYear();
     const [currentEthYear] = toEthiopian(currentGregYear, 1, 1);
@@ -340,506 +348,703 @@ export default function ViewLease() {
   };
 
   return (
-    <div className="container mx-auto py-6">
+    <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Link href="/dashboard/leases">
-            <Button variant="outline" size="icon">
+            <Button variant="ghost" size="sm" className="p-2">
               <ChevronLeftIcon className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-semibold">
-            {creating ? "New Lease Agreement" : editing ? "Edit Lease Agreement" : "View Lease Agreement"}
+          <h1 className="text-2xl font-bold text-gray-900">
+            {creating ? "Create Lease Agreement" : editing ? "Edit Lease Agreement" : "View Lease Agreement"}
           </h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => {
+              if (!creating && !editing) {
+                setEditing(true);
+              } else {
+                form.handleSubmit(handleSubmit)();
+              }
+            }}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {creating ? "Create" : editing ? "Save Changes" : "Edit"}
+          </Button>
+          <Button
+            variant={creating || editing ? "outline" : "destructive"}
+            onClick={() => {
+              if (creating) {
+                router.push("/dashboard/leases");
+              } else if (editing) {
+                setEditing(false);
+                form.reset({
+                  startDate: lease?.startDate && !isNaN(new Date(lease.startDate).getTime())
+                    ? (() => {
+                        const gregDate = new Date(lease.startDate);
+                        const [ethYear, ethMonth, ethDay] = toEthiopian(
+                          gregDate.getFullYear(),
+                          gregDate.getMonth() + 1,
+                          gregDate.getDate()
+                        );
+                        return [{ year: ethYear, month: ethMonth, day: ethDay }];
+                      })()
+                    : [{ day: undefined, month: undefined, year: undefined }],
+                  endDate: lease?.endDate && !isNaN(new Date(lease.endDate).getTime())
+                    ? (() => {
+                        const gregDate = new Date(lease.endDate);
+                        const [ethYear, ethMonth, ethDay] = toEthiopian(
+                          gregDate.getFullYear(),
+                          gregDate.getMonth() + 1,
+                          gregDate.getDate()
+                        );
+                        return [{ year: ethYear, month: ethMonth, day: ethDay }];
+                      })()
+                    : [{ day: undefined, month: undefined, year: undefined }],
+                  tenantId: lease?.tenantId || 0,
+                  paymentAmountPerMonth: {
+                    base: lease?.paymentAmountPerMonth?.base || 0,
+                    utility: lease?.paymentAmountPerMonth?.utility || 0,
+                  },
+                  deposit: lease?.deposit || 0,
+                  paymentIntervalInMonths: lease?.paymentIntervalInMonths || 1,
+                  lateFee: lease?.lateFee || 0,
+                  lateFeeType: lease?.lateFeeType || "FIXED",
+                  rooms: lease?.roomIds?.map((roomId: number) => {
+                    const room = rooms.find((r) => r.id === roomId);
+                    return {
+                      buildingId: room?.buildingId?.toString() ?? "",
+                      roomId: roomId.toString(),
+                    };
+                  }) ?? [{}],
+                });
+              } else {
+                setShowDeleteDialog(true);
+              }
+            }}
+          >
+            {creating ? "Cancel" : editing ? "Cancel" : "Delete"}
+          </Button>
           {!creating && !editing && lease && (
-            <>
-              <Link href={`/dashboard/leases/payment/add?leaseId=${lease.id}`}>
-                <Button variant="outline">
-                  Add Payment
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={() => setEditing(true)}>
-                Edit
+            <Link href={`/dashboard/leases/payment/add?leaseId=${lease.id}`}>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                Add Payment
               </Button>
-              <Button variant="destructive" onClick={() => setShowDeleteDialog(true)}>
-                Delete
-              </Button>
-            </>
+            </Link>
           )}
         </div>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
-          <div className="grid grid-cols-4 gap-4">
-            <div className="col-span-2">
-              <FormField
-                control={form.control}
-                name="tenantId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tenant</FormLabel>
-                    <Select
-                      disabled={!creating && !editing}
-                      onValueChange={(value) => field.onChange(Number(value))}
-                      value={field.value.toString()}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a tenant" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {tenants.map((tenant) => (
-                          <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                            {tenant.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
+      <div className="flex flex-col gap-8">
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogTitle>Delete Lease</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this lease? This action cannot be undone.
+            </DialogDescription>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={handleDelete}>
+                Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
+            <Card className="border-none shadow-md rounded-lg">
+              <CardHeader>
+                <h2 className="text-xl font-semibold text-gray-900">Lease Information</h2>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="tenantId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Tenant</FormLabel>
+                        <Select
+                          disabled={!creating && !editing}
+                          onValueChange={(value) => field.onChange(Number(value))}
+                          value={field.value.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger
+                              className={cn(
+                                "border-gray-200 rounded-md shadow-sm transition-all",
+                                !creating && !editing
+                                  ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                  : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              )}
+                            >
+                              <SelectValue placeholder="Select a tenant" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tenants.map((tenant) => (
+                              <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                                {tenant.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="paymentIntervalInMonths"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Payment Interval (Months)</FormLabel>
+                        <Select
+                          disabled={!creating && !editing}
+                          onValueChange={(value) => field.onChange(Number(value))}
+                          value={field.value.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger
+                              className={cn(
+                                "w-[120px] border-gray-200 rounded-md shadow-sm transition-all",
+                                !creating && !editing
+                                  ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                  : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              )}
+                            >
+                              <SelectValue placeholder="Interval" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {Array.from({ length: 12 }).map((_, idx) => (
+                              <SelectItem key={idx} value={`${idx + 1}`}>
+                                {idx + 1} Month{idx + 1 > 1 ? "s" : ""}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                  <div className="space-y-4">
+                    {startDate.fields.map((field, index) => (
+                      <div key={field.id}>
+                        <FormLabel className="text-gray-700">Start Date (Ethiopian Calendar)</FormLabel>
+                        <div className="grid grid-cols-3 gap-2">
+                          <FormField
+                            control={form.control}
+                            name={`startDate.${index}.year`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <Select
+                                  disabled={!creating && !editing}
+                                  onValueChange={(value) => {
+                                    field.onChange(Number(value));
+                                    form.setValue(`startDate.${index}.day`, undefined);
+                                  }}
+                                  value={field.value?.toString() ?? ""}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className={cn(
+                                        "w-[110px] border-gray-200 rounded-md shadow-sm transition-all",
+                                        !creating && !editing
+                                          ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                          : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      )}
+                                    >
+                                      <SelectValue placeholder="Year" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getEthiopianYears().map((year) => (
+                                      <SelectItem key={year} value={year.toString()}>
+                                        {year}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-red-500 text-sm" />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`startDate.${index}.month`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <Select
+                                  disabled={!creating && !editing}
+                                  onValueChange={(value) => {
+                                    field.onChange(Number(value));
+                                    form.setValue(`startDate.${index}.day`, undefined);
+                                  }}
+                                  value={field.value?.toString() ?? ""}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className={cn(
+                                        "w-[110px] border-gray-200 rounded-md shadow-sm transition-all",
+                                        !creating && !editing
+                                          ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                          : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      )}
+                                    >
+                                      <SelectValue placeholder="Month" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {monthNames.map((month, idx) => (
+                                      <SelectItem key={month} value={(idx + 1).toString()}>
+                                        {month}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-red-500 text-sm" />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`startDate.${index}.day`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <Select
+                                  disabled={!creating && !editing || !form.watch(`startDate.${index}.month`)}
+                                  onValueChange={(value) => field.onChange(Number(value))}
+                                  value={field.value?.toString() ?? ""}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className={cn(
+                                        "w-[80px] border-gray-200 rounded-md shadow-sm transition-all",
+                                        (!creating && !editing) || !form.watch(`startDate.${index}.month`)
+                                          ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                          : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      )}
+                                    >
+                                      <SelectValue placeholder="Day" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getDaysInMonth(
+                                      form.watch(`startDate.${index}.month`),
+                                      form.watch(`startDate.${index}.year`)
+                                    ).map((day) => (
+                                      <SelectItem key={day} value={day.toString()}>
+                                        {day}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-red-500 text-sm" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-4">
+                    {endDate.fields.map((field, index) => (
+                      <div key={field.id}>
+                        <FormLabel className="text-gray-700">End Date (Ethiopian Calendar)</FormLabel>
+                        <div className="grid grid-cols-3 gap-2">
+                          <FormField
+                            control={form.control}
+                            name={`endDate.${index}.year`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <Select
+                                  disabled={!creating && !editing}
+                                  onValueChange={(value) => {
+                                    field.onChange(Number(value));
+                                    form.setValue(`endDate.${index}.day`, undefined);
+                                  }}
+                                  value={field.value?.toString() ?? ""}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className={cn(
+                                        "w-[110px] border-gray-200 rounded-md shadow-sm transition-all",
+                                        !creating && !editing
+                                          ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                          : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      )}
+                                    >
+                                      <SelectValue placeholder="Year" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getEthiopianYears().map((year) => (
+                                      <SelectItem key={year} value={year.toString()}>
+                                        {year}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-red-500 text-sm" />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`endDate.${index}.month`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <Select
+                                  disabled={!creating && !editing}
+                                  onValueChange={(value) => {
+                                    field.onChange(Number(value));
+                                    form.setValue(`endDate.${index}.day`, undefined);
+                                  }}
+                                  value={field.value?.toString() ?? ""}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className={cn(
+                                        "w-[110px] border-gray-200 rounded-md shadow-sm transition-all",
+                                        !creating && !editing
+                                          ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                          : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      )}
+                                    >
+                                      <SelectValue placeholder="Month" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {monthNames.map((month, idx) => (
+                                      <SelectItem key={month} value={(idx + 1).toString()}>
+                                        {month}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-red-500 text-sm" />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name={`endDate.${index}.day`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <Select
+                                  disabled={!creating && !editing || !form.watch(`endDate.${index}.month`)}
+                                  onValueChange={(value) => field.onChange(Number(value))}
+                                  value={field.value?.toString() ?? ""}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger
+                                      className={cn(
+                                        "w-[80px] border-gray-200 rounded-md shadow-sm transition-all",
+                                        (!creating && !editing) || !form.watch(`endDate.${index}.month`)
+                                          ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                          : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      )}
+                                    >
+                                      <SelectValue placeholder="Day" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    {getDaysInMonth(
+                                      form.watch(`endDate.${index}.month`),
+                                      form.watch(`endDate.${index}.year`)
+                                    ).map((day) => (
+                                      <SelectItem key={day} value={day.toString()}>
+                                        {day}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage className="text-red-500 text-sm" />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md rounded-lg">
+              <CardHeader>
+                <h2 className="text-xl font-semibold text-gray-900">Payment Details</h2>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="paymentAmountPerMonth.base"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Base Payment Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            disabled={!creating && !editing}
+                            {...field}
+                            className={cn(
+                              "border-gray-200 rounded-md shadow-sm transition-all",
+                              !creating && !editing
+                                ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            )}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="paymentAmountPerMonth.utility"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Utility Payment Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            disabled={!creating && !editing}
+                            {...field}
+                            className={cn(
+                              "border-gray-200 rounded-md shadow-sm transition-all",
+                              !creating && !editing
+                                ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            )}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="deposit"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Deposit Amount</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            disabled={!creating && !editing}
+                            {...field}
+                            className={cn(
+                              "border-gray-200 rounded-md shadow-sm transition-all",
+                              !creating && !editing
+                                ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            )}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lateFee"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Late Fee</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            disabled={!creating && !editing}
+                            {...field}
+                            className={cn(
+                              "border-gray-200 rounded-md shadow-sm transition-all",
+                              !creating && !editing
+                                ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            )}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lateFeeType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700">Late Fee Type</FormLabel>
+                        <Select
+                          disabled={!creating && !editing}
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger
+                              className={cn(
+                                "border-gray-200 rounded-md shadow-sm transition-all",
+                                !creating && !editing
+                                  ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                  : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              )}
+                            >
+                              <SelectValue placeholder="Select late fee type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="FIXED">Fixed Amount</SelectItem>
+                            <SelectItem value="PERCENTAGE">Percentage</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="text-red-500 text-sm" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-none shadow-md rounded-lg">
+              <CardHeader>
+                <h2 className="text-xl font-semibold text-gray-900">Rented Rooms</h2>
+              </CardHeader>
+              <CardContent>
+                {(creating || editing) ? (
+                  <div className="space-y-4">
+                    {fields.map((field, index) => (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6" key={field.id}>
+                        <FormField
+                          control={form.control}
+                          name={`rooms.${index}.buildingId`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-700">Select Building</FormLabel>
+                              <Select
+                                onValueChange={(value) => {
+                                  field.onChange(value);
+                                  form.setValue(`rooms.${index}.roomId`, "");
+                                }}
+                                value={field.value}
+                              >
+                                <FormControl>
+                                  <SelectTrigger
+                                    className="border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                  >
+                                    <SelectValue placeholder="Select Building" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {buildings.map((bldg) => (
+                                    <SelectItem key={bldg.id} value={bldg.id.toString()}>
+                                      {bldg.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage className="text-red-500 text-sm" />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`rooms.${index}.roomId`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-700">Select Room</FormLabel>
+                              <Select
+                                onValueChange={field.onChange}
+                                value={field.value}
+                                disabled={!form.watch(`rooms.${index}.buildingId`)}
+                              >
+                                <FormControl>
+                                  <SelectTrigger
+                                    className={cn(
+                                      "border-gray-200 rounded-md shadow-sm transition-all",
+                                      !form.watch(`rooms.${index}.buildingId`)
+                                        ? "bg-gray-100 opacity-70 cursor-not-allowed"
+                                        : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    )}
+                                  >
+                                    <SelectValue placeholder="Select Room" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {rooms
+                                    .filter((room) => {
+                                      if (editing) {
+                                        
+                                      }
+                                      
+                                      return !room.occupied || (lease?.roomIds?.includes(room.id) && editing)
+                                    })
+                                    .filter(
+                                      (room) =>
+                                        room.buildingId?.toString() ===
+                                        form.watch(`rooms.${index}.buildingId`)
+                                    )
+                                    .map((room) => (
+                                      <SelectItem key={room.id} value={room.id.toString()}>
+                                        {room.name}
+                                      </SelectItem>
+                                    ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage className="text-red-500 text-sm" />
+                            </FormItem>
+                          )}
+                        />
+                        {fields.length > 1 && (
+                          <div className="flex items-end">
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => remove(index)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    <div className="flex items-center gap-4">
+                      <button
+                        type="button"
+                        className="text-blue-600 hover:underline text-sm font-medium"
+                        onClick={() => append({ buildingId: "", roomId: "" })}
+                      >
+                        + Add More Rooms
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pt-6">
+                    <RoomsDataTable columns={roomsColumn} data={rentedRooms} />
+                  </div>
                 )}
-              />
-            </div>
+              </CardContent>
+            </Card>
+          </form>
+        </Form>
 
-            <FormField
-              control={form.control}
-              name="paymentType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Type</FormLabel>
-                  <Select
-                    disabled={!creating && !editing}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select payment type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="PREPAID">Prepaid</SelectItem>
-                      <SelectItem value="POSTPAID">Postpaid</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="paymentIntervalInMonths"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Interval (months)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={!creating && !editing}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Start Date */}
-            <div className="flex flex-col gap-2">
-              {startDate.fields.map((field, index) => (
-                <div key={field.id}>
-                  <FormLabel>Start Date</FormLabel>
-                  <div className="flex items-center gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`startDate.${index}.year`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <Select
-                            disabled={!creating && !editing}
-                            onValueChange={field.onChange}
-                            value={field.value?.toString() ?? ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Year" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {getEthiopianYears().map((year) => (
-                                <SelectItem key={year} value={year.toString()}>
-                                  {year}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`startDate.${index}.month`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <Select
-                            disabled={!creating && !editing}
-                            onValueChange={field.onChange}
-                            value={field.value?.toString() ?? ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Month" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {monthNames.map((month, idx) => (
-                                <SelectItem key={month} value={(idx + 1).toString()}>
-                                  {month}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`startDate.${index}.day`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <Select
-                            disabled={!creating && !editing || !form.watch(`startDate.${index}.month`)}
-                            onValueChange={field.onChange}
-                            value={field.value?.toString() ?? ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Day" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {getDaysInMonth(
-                                form.watch(`startDate.${index}.month`),
-                                form.watch(`startDate.${index}.year`)
-                              ).map((day) => (
-                                <SelectItem key={day} value={day.toString()}>
-                                  {day}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* End Date */}
-            <div className="flex flex-col gap-2">
-              {endDate.fields.map((field, index) => (
-                <div key={field.id}>
-                  <FormLabel>End Date</FormLabel>
-                  <div className="flex items-center gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`endDate.${index}.year`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <Select
-                            disabled={!creating && !editing}
-                            onValueChange={field.onChange}
-                            value={field.value?.toString() ?? ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Year" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {getEthiopianYears().map((year) => (
-                                <SelectItem key={year} value={year.toString()}>
-                                  {year}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`endDate.${index}.month`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <Select
-                            disabled={!creating && !editing}
-                            onValueChange={field.onChange}
-                            value={field.value?.toString() ?? ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Month" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {monthNames.map((month, idx) => (
-                                <SelectItem key={month} value={(idx + 1).toString()}>
-                                  {month}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`endDate.${index}.day`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <Select
-                            disabled={!creating && !editing || !form.watch(`endDate.${index}.month`)}
-                            onValueChange={field.onChange}
-                            value={field.value?.toString() ?? ""}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Day" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {getDaysInMonth(
-                                form.watch(`endDate.${index}.month`),
-                                form.watch(`endDate.${index}.year`)
-                              ).map((day) => (
-                                <SelectItem key={day} value={day.toString()}>
-                                  {day}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <FormField
-              control={form.control}
-              name="paymentAmountPerMonth.base"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Base Payment Amount</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={!creating && !editing}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="paymentAmountPerMonth.utility"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Utility Payment Amount</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={!creating && !editing}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="deposit"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Deposit Amount</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={!creating && !editing}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="lateFee"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Late Fee</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={!creating && !editing}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="lateFeeType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Late Fee Type</FormLabel>
-                  <Select
-                    disabled={!creating && !editing}
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select late fee type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="FIXED">Fixed Amount</SelectItem>
-                      <SelectItem value="PERCENTAGE">Percentage</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="lateFeeGracePeriodInDays"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Late Fee Grace Period (days)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      disabled={!creating && !editing}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {(creating || editing) && (
-              <>
-                <FormField
-                  control={form.control}
-                  name="initialPayment.amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial Payment Amount</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          disabled={!creating && !editing}
-                          {...field}
-                          value={field.value ?? ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="initialPayment.paymentDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial Payment Date</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="date"
-                          disabled={!creating && !editing}
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </>
-            )}
-          </div>
-
-          {(creating || editing) && (
-            <Button type="submit" className="w-full mt-6">
-              {creating ? "Create Lease" : "Save Changes"}
-            </Button>
-          )}
-        </form>
-      </Form>
-
-      <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Rented Rooms</h2>
-          <RoomsDataTable
-            columns={roomsColumn}
-            data={rentedRooms}
-          />
-        </div>
-
-      {lease && lease.paymentSchedule && lease.paymentSchedule.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-xl font-semibold mb-4">Payment Schedule</h2>
-          <DataTable
-            columns={columns}
-            data={lease.paymentSchedule}
-          />
-        </div>
-      )}
-
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogTitle>Delete Lease</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete this lease? This action cannot be undone.
-          </DialogDescription>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowDeleteDialog(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleDelete}>
-              Delete
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        {!editing && lease && lease.paymentSchedule && lease.paymentSchedule.length > 0 && (
+          <Card className="border-none shadow-md rounded-lg">
+            <CardHeader>
+              <h2 className="text-xl font-semibold text-gray-900">Payment Schedule</h2>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <DataTable columns={columns} data={lease.paymentSchedule} />
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
