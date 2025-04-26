@@ -1,10 +1,12 @@
 import { Database } from "../db"
 import { Payment } from "../entities/Payment.entity"
 import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
-import { LessThan } from "typeorm"
+import { In, LessThan } from "typeorm"
+import { Room } from "../entities/Room.entity"
 
 export const PaymentRepository = Database.getRepository(Payment)
 export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
+export const RoomRepository = Database.getRepository(Room)
 
 export async function getPayments({
     skip = 0,
@@ -42,16 +44,50 @@ export async function getPayments({
     return query.getManyAndCount();
   }
 
-export async function getPayment(id?: number) {
+  export async function getPayment(id?: number) {
     if (id) {
-        return PaymentRepository.findOne({
-            where: { id },
-            relations: ['lease', 'bank']
-        })
+        const payment: any = await PaymentRepository.createQueryBuilder("payment")
+            .leftJoinAndSelect("payment.bank", "bank")
+            .leftJoinAndSelect("payment.lease", "lease")
+            .leftJoinAndSelect("lease.tenant", "tenant")
+            .where("payment.id = :id", { id })
+            .getOne();
+
+        if (!payment) {
+            throw new Error(`Payment with ID ${id} not found`);
+        }
+
+        // Fetch rooms associated with the lease's roomIds
+        if (payment.lease && payment.lease.roomIds && payment.lease.roomIds.length > 0) {
+            const rooms = await RoomRepository.find({
+                where: { id: In(payment.lease.roomIds) },
+            });
+            // Attach rooms to the lease object to match the structure expected by verifyPayment.tsx
+            payment.lease.rooms = rooms;
+        } else {
+            payment.lease.rooms = [];
+        }
+
+        return payment;
     }
-    return PaymentRepository.find({
-        relations: ['lease', 'bank']
-    })
+
+    const payments: any[] = await PaymentRepository.find({
+        relations: ['lease', 'lease.tenant', 'bank'],
+    });
+
+    // Fetch rooms for each payment's lease
+    for (const payment of payments) {
+        if (payment.lease && payment.lease.roomIds && payment.lease.roomIds.length > 0) {
+            const rooms = await RoomRepository.find({
+                where: { id: In(payment.lease.roomIds) },
+            });
+            payment.lease.rooms = rooms;
+        } else {
+            payment.lease.rooms = [];
+        }
+    }
+
+    return payments;
 }
 
 export async function getOverduePaymentSchedule() {
@@ -80,22 +116,68 @@ export async function createPayment(payment: Partial<Payment>) {
 
 export async function verifyPayment(id: number, verificationData: Partial<Payment>) {
     const payment = await PaymentRepository.findOne({
-        where: { id }
-    })
+        where: { id },
+        relations: ['lease', 'bank']
+    });
 
     if (!payment) {
-        throw new Error("Payment not found")
+        throw new Error("Payment not found");
     }
 
     if (payment.isVerified) {
-        throw new Error("Payment already verified")
+        throw new Error("Payment already verified");
     }
 
-    await PaymentRepository.update(id, verificationData)
-    return await PaymentRepository.findOne({
+    // Update payment with verification data
+    await PaymentRepository.update(id, {
+        invoicePath: verificationData.invoicePath,
+        invoiceNumber: verificationData.invoiceNumber,
+        isVerified: true,
+        verifiedAt: new Date(),
+    });
+
+    // Fetch the updated payment
+    const updatedPayment = await PaymentRepository.findOne({
         where: { id },
         relations: ['lease', 'bank']
-    })
+    });
+
+    if (!updatedPayment) {
+        throw new Error("Failed to fetch updated payment");
+    }
+
+    // Distribute the payment to the PaymentSchedule entries
+    let remainingPayment = updatedPayment.paidAmount;
+    const leaseId = updatedPayment.leaseId;
+
+    // Use query builder to fetch unpaid or partially paid schedules
+    const schedules = await PaymentScheduleRepository
+        .createQueryBuilder("schedule")
+        .where("schedule.leaseId = :leaseId", { leaseId })
+        .andWhere("schedule.paidAmount < schedule.payableAmount")
+        .orderBy("schedule.dueDate", "ASC")
+        .getMany();
+
+    for (const schedule of schedules) {
+        if (remainingPayment <= 0) break; // No more payment to distribute
+
+        const remainingScheduleAmount = schedule.payableAmount - (schedule.paidAmount || 0);
+        const amountToApply = Math.min(remainingPayment, remainingScheduleAmount);
+
+        // Update the schedule
+        schedule.paidAmount = (schedule.paidAmount || 0) + amountToApply;
+        remainingPayment -= amountToApply;
+
+        // If the schedule is fully paid, set the paymentDate
+        if (schedule.paidAmount === schedule.payableAmount) {
+            schedule.paymentDate = updatedPayment.paymentDate;
+        }
+
+        // Save the updated schedule
+        await PaymentScheduleRepository.save(schedule);
+    }
+
+    return updatedPayment;
 }
 
 export async function changeStatus(scheduleId: number, paid: boolean) {

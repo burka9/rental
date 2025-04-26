@@ -44,7 +44,7 @@ export class Payment {
     verifiedAt: Date;
 
     @Column({ nullable: true })
-    verifiedBy: string;
+    invoiceNumber: string;
 
     // New file columns
     @Column({ nullable: true })

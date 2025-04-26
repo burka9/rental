@@ -1,2 +1,3 @@
 api/logs/
 api/uploads
+.env

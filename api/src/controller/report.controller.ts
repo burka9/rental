@@ -5,65 +5,73 @@ import { LeaseRepository, PaymentScheduleRepository } from './lease.controller';
 import { PaymentRepository } from './payment.controller';
 import { TenantRepository } from './tenant.controller';
 import { RoomRepository } from './room.controller';
-import { LessThan, MoreThan } from 'typeorm';
 
 export type BasicReport = {
-	totalRooms: number
-	vacantRooms: number
-	totalTenants: number
-	overduePayments: {
-		totalTenants: number
-		totalAmount: number
-	}
-	upcomingPayment: {
-		tenantId: number
-		leaseId: number
-		tenantName: string
-		dueDate: Date
-		paymentAmount: number
-	}[]
+    totalRooms: number;
+    vacantRooms: number;
+    totalTenants: number;
+    overduePayments: {
+        totalTenants: number;
+        totalAmount: number;
+    };
+    upcomingPayment: {
+        tenantId: string;
+        leaseId: string;
+        tenantName: string;
+        dueDate: Date;
+        paymentAmount: number;
+    }[];
 }
 
 export async function getBasicReports(): Promise<BasicReport> {
-	const totalRooms = await RoomRepository.count()
-	const vacantRooms = await RoomRepository.count({ where: { occupied: false } })
+    const currentDate = new Date();
 
-	const overduePayments = await PaymentScheduleRepository.find({
-		where: {
-			dueDate: LessThan(new Date())
-		},
-		relations: ['lease', 'lease.tenant']
-	})
+    // Total rooms
+    const totalRooms = await RoomRepository.count();
 
-	const upcomingPayments = await PaymentScheduleRepository.find({
-		where: {
-			dueDate: MoreThan(new Date())
-		},
-		relations: ['lease', 'lease.tenant']
-	})
+    // Vacant rooms
+    const vacantRooms = await RoomRepository.count({ where: { occupied: false } });
 
-	const totalTenants = await TenantRepository.count({
-		where: {
-			leases: {
-				active: true
-			}
-		}
-	})
+    // Total tenants with active leases
+    const totalTenants = await TenantRepository.count({
+        where: { leases: { active: true } },
+        relations: ['leases'],
+    });
 
-	return {
-		totalRooms,
-		vacantRooms,
-		totalTenants,
-		overduePayments: {
-			totalTenants: new Set(overduePayments.map(payment => payment.lease.tenant.name)).size,
-			totalAmount: overduePayments.reduce((total, payment) => Number(total) + Number(payment.payableAmount), 0)
-		},
-		upcomingPayment: upcomingPayments.map(payment => ({
-			leaseId: payment.lease.id,
-			tenantId: payment.lease.tenant.id,
-			tenantName: payment.lease.tenant.name,
-			dueDate: payment.dueDate,
-			paymentAmount: Number(payment.payableAmount)
-		}))
-	}
+    // Overdue payments: unpaid/partially paid schedules with dueDate < current date
+    const overduePayments = await PaymentScheduleRepository.createQueryBuilder("schedule")
+        .leftJoinAndSelect("schedule.lease", "lease")
+        .leftJoinAndSelect("lease.tenant", "tenant")
+        .where("schedule.dueDate < :currentDate", { currentDate })
+        .andWhere("schedule.paidAmount < schedule.payableAmount")
+        .getMany();
+
+    // Upcoming payments: unpaid/partially paid schedules with dueDate > current date
+    const upcomingPayments = await PaymentScheduleRepository.createQueryBuilder("schedule")
+        .leftJoinAndSelect("schedule.lease", "lease")
+        .leftJoinAndSelect("lease.tenant", "tenant")
+        .where("schedule.dueDate > :currentDate", { currentDate })
+        .andWhere("schedule.paidAmount < schedule.payableAmount")
+        .orderBy("schedule.dueDate", "ASC")
+        .getMany();
+
+    return {
+        totalRooms,
+        vacantRooms,
+        totalTenants,
+        overduePayments: {
+            totalTenants: new Set(overduePayments.map(payment => payment.lease?.tenant?.name)).size,
+            totalAmount: overduePayments.reduce((total, payment) => {
+                const remaining = Number(payment.payableAmount) - (Number(payment.paidAmount) || 0);
+                return total + remaining;
+            }, 0),
+        },
+        upcomingPayment: upcomingPayments.map(payment => ({
+            leaseId: payment.lease?.id?.toString() ?? "0",
+            tenantId: payment.lease?.tenant?.id?.toString() ?? "0",
+            tenantName: payment.lease?.tenant?.name ?? "Unknown",
+            dueDate: payment.dueDate,
+            paymentAmount: Number(payment.payableAmount) - (Number(payment.paidAmount) || 0),
+        })),
+    };
 }

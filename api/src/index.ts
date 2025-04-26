@@ -14,6 +14,7 @@ import handleSocket from "./socket";
 import { User } from "./entities/User.entity";
 import { hashSync } from "bcrypt";
 import { ROLES } from "./entities/User.entity";
+import { resolve } from "path";
 
 const app = express()
 app.use(express.json())
@@ -30,6 +31,11 @@ app.use(cors({
 	origin: env.FRONTEND_URL,
 	credentials: true
 }))
+
+
+// temporary
+app.use('/uploads', express.static(resolve(__dirname, '../uploads')))
+
 
 
 // TODO: Add error handling middleware

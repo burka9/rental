@@ -87,7 +87,7 @@ export type Payment = {
 	notes: string;
 	isVerified: boolean;
 	verifiedAt: Date;
-	verifiedBy: string;
+	invoiceNumber: string;
 	bankSlipPath: string
 	invoicePath: string
 	lease: Lease;

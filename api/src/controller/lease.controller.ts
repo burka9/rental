@@ -14,7 +14,7 @@ export async function getLease(id?: number) {
             relations: {
                 paymentSchedule: true,
                 payments: true,
-                tenant: true
+                tenant: true,
             }
         })
     }

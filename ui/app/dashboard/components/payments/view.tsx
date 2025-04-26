@@ -9,14 +9,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeftIcon } from "lucide-react";
+import { ChevronLeftIcon, DownloadIcon, EyeIcon } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useTenantStore } from "@/lib/store/tenants";
 import { usePropertyStore } from "@/lib/store/property";
 import { Lease, Payment, Bank } from "@/lib/types";
 import { toGregorian } from "@/lib/date-converter";
-import { axios} from "@/lib/axios";
+import { axios, baseURL } from "@/lib/axios";
 
 // Ethiopian month names
 const monthNames = [
@@ -55,6 +57,125 @@ const formSchema = z.object({
   }),
 });
 
+// Component to handle file display and download
+const BankSlipDisplay = ({ filePath }: { filePath: string }) => {
+  const fileUrl = `${baseURL}/${filePath}`;
+  const isPdf = filePath.toLowerCase().endsWith('.pdf');
+  const fileName = filePath.split('/').pop() || 'bank-slip';
+  const [imageError, setImageError] = useState(false);
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error('Failed to fetch file');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error('Failed to download file');
+    }
+  };
+
+  return (
+    <div className="col-span-full">
+      <FormLabel className="text-sm font-medium text-gray-700">Bank Slip</FormLabel>
+      <div className="mt-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            {isPdf ? (
+              <div className="relative w-full h-80 bg-gray-50 rounded-md overflow-hidden">
+                <iframe
+                  src={`${fileUrl}#toolbar=0`}
+                  className="w-full h-full"
+                  title="Bank Slip PDF Preview"
+                />
+                <div className="absolute bottom-2 left-2 bg-gray-800 text-white text-xs px-2 py-1 rounded">
+                  PDF Preview
+                </div>
+              </div>
+            ) : imageError ? (
+              <div className="w-full h-80 bg-gray-100 rounded-md flex items-center justify-center">
+                <p className="text-gray-500 text-sm">Failed to load image</p>
+              </div>
+            ) : (
+              <div className="relative w-full h-80 bg-gray-50 rounded-md overflow-hidden">
+                <Image
+                  src={fileUrl}
+                  alt="Bank Slip"
+                  fill
+                  className="object-contain"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  onError={() => setImageError(true)}
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col justify-between sm:w-48 gap-2">
+            <div>
+              <p className="text-sm font-medium text-gray-900">File Name</p>
+              <p className="text-sm text-gray-500 truncate">{fileName}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              {isPdf ? (
+                <Button
+                  asChild
+                  className="w-full bg-gray-600 hover:bg-gray-700 text-white flex items-center gap-2"
+                >
+                  <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+                    <EyeIcon className="h-4 w-4" />
+                    View File
+                  </a>
+                </Button>
+              ) : (
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button className="w-full bg-gray-600 hover:bg-gray-700 text-white flex items-center gap-2">
+                      <EyeIcon className="h-4 w-4" />
+                      Full Screen
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl p-0">
+                    <div className="relative w-full h-[80vh]">
+                      {imageError ? (
+                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                          <p className="text-gray-500 text-sm">Failed to load image</p>
+                        </div>
+                      ) : (
+                        <Image
+                          src={fileUrl}
+                          alt="Bank Slip Full Screen"
+                          fill
+                          className="object-contain"
+                          sizes="100vw"
+                          onError={() => setImageError(true)}
+                        />
+                      )}
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+              <Button
+                onClick={handleDownload}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                Download
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ViewPayments() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -71,11 +192,9 @@ export default function ViewPayments() {
     defaultValues: {
       leaseId: payment?.leaseId,
       paidAmount: payment?.paidAmount,
-      // paymentDate: payment?.paymentDate,
       bankId: payment?.bankId,
       referenceNumber: payment?.referenceNumber,
       notes: payment?.notes,
-      // bankSlipAttachment: payment?.bankSlipPath,
     },
   });
 
@@ -83,11 +202,11 @@ export default function ViewPayments() {
   const bankId = form.watch("bankId");
 
   const selectedLease = useMemo(() => {
-      if (creating && leaseId !== null) return leases.find(l => l.id === leaseId);
-      
-      if (!leases.length) return null;
-      return leases.find(l => l.id === payment?.leaseId);
-    }, [payment?.leaseId, leases, creating, leaseId]);
+    if (creating && leaseId !== null) return leases.find(l => l.id === leaseId);
+    
+    if (!leases.length) return null;
+    return leases.find(l => l.id === payment?.leaseId);
+  }, [payment?.leaseId, leases, creating, leaseId]);
 
   const selectedBank = useMemo(() => {
     if (creating && bankId !== null) return banks.find(b => b.id === bankId);
@@ -127,29 +246,26 @@ export default function ViewPayments() {
   }, [searchParams, fetchLease, fetchLeases, fetchBanks, form]);
 
   useEffect(() => {
-      const id = Number(searchParams.get("id"));
-      if (!id) return;
-      fetchPayment(id)
-        .then((data) => {
-          console.log(data)
-          if (data == null) router.push(`/dashboard/payments`);
-          else setPayment(data);
-        })
-        .catch((error) => console.log(error));
-    }, [fetchPayment, searchParams, router]);
+    const id = Number(searchParams.get("id"));
+    if (!id) return;
+    fetchPayment(id)
+      .then((data) => {
+        if (data == null) router.push(`/dashboard/payments`);
+        else setPayment(data);
+      })
+      .catch((error) => console.log(error));
+  }, [fetchPayment, searchParams, router]);
 
   useEffect(() => {
     form.reset({
       leaseId: payment?.leaseId,
       paidAmount: payment?.paidAmount,
-      // paymentDate: payment?.paymentDate,
       bankId: payment?.bankId,
       referenceNumber: payment?.referenceNumber,
       notes: payment?.notes,
-      // bankSlipAttachment: payment?.bankSlipPath,
-    })
-  }, [form, payment])
-  
+    });
+  }, [form, payment]);
+
   // Generate Ethiopian years (±25 years from current)
   const getEthiopianYears = () => {
     const currentGregYear = new Date().getFullYear();
@@ -229,7 +345,7 @@ export default function ViewPayments() {
         .then((response) => {
           if (response.status >= 200 && response.status < 300) {
             toast.success("Payment added successfully");
-            router.push("/dashboard/leases?message=Payment added successfully");
+            router.push("/dashboard/payments?message=Payment added successfully");
           }
         })
         .catch((error) => {
@@ -250,7 +366,7 @@ export default function ViewPayments() {
         <div className="flex flex-col gap-4 max-w-4xl mx-auto py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Link href="/dashboard/leases">
+              <Link href="/dashboard/payments">
                 <Button className="mr-2 p-1 px-2" size="sm">
                   <ChevronLeftIcon className="h-4 w-4" />
                 </Button>
@@ -491,28 +607,28 @@ export default function ViewPayments() {
                   />
                 </div>
 
-                {
-                  creating
-                    ? <FormField
-                      control={form.control}
-                      name="bankSlipAttachment"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Bank Slip Attachment</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="file"
-                              accept=".pdf,.jpg,.jpeg,.png"
-                              onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
-                              className="bg-white"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    : <Link href="">View File</Link>
-                }
+                {creating ? (
+                  <FormField
+                    control={form.control}
+                    name="bankSlipAttachment"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Slip Attachment</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="file"
+                            accept=".pdf,.jpg,.jpeg,.png"
+                            onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                            className="bg-white"
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ) : (
+                  payment?.bankSlipPath && <BankSlipDisplay filePath={payment.bankSlipPath} />
+                )}
               </div>
             </form>
           </Form>

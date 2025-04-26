@@ -47,6 +47,18 @@ export const columns: ColumnDef<Payment>[] = [
 							View Payment
 						</Button>
 					</Link>
+					{
+						!row.original.isVerified &&
+						<Link href={`/dashboard/payments/verify?id=${row.original.id}`}>
+							<Button
+								variant="outline"
+								size="sm"
+								className="h-8 w-full text-white bg-green-700 hover:bg-green-800 hover:text-white"
+								>
+								Verify
+							</Button>
+						</Link>
+					}
 					{/* <Link href={`/dashboard/rooms/view?id=${row.original.id}&edit=true`}>
 						<Button
 							variant="outline"

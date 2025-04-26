@@ -177,5 +177,28 @@ export default function(): Router {
 		}
 	})
 
+	router.post('/verify', upload.single('bankSlipAttachment'), async (req, res) => {
+			try {
+					const verificationData = {
+							invoiceNumber: req.body.invoiceNumber,
+							invoicePath: req.file?.path,
+							verified: true,
+							verificationDate: new Date()
+					}
+
+					const payment = await verifyPayment(parseInt(req.body.id), verificationData)
+					res.json({
+							success: true,
+							message: "Payment verified successfully",
+							data: payment
+					})
+			} catch (error: any) {
+					res.status(400).json({ 
+							success: false,
+							message: error.message
+						})
+					}
+		})
+	
 	return router
 }

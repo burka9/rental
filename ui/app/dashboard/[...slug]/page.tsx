@@ -20,6 +20,8 @@ import Notification from "../components/notification";
 import Report from "../components/report";
 import Payments from "../components/payments";
 import ViewPayments from "../components/payments/view";
+import VerifyPayment from "../components/payments/verify";
+import Leases from "../components/leases";
 
 // Define the map outside the component to avoid re-creating it on each render.
 const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = {
@@ -34,7 +36,8 @@ const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = 
 	'banks/view': ViewBank,
 	'payments': Payments,
 	'payments/view': ViewPayments,
-	// 'leases': Leases,
+	'payments/verify': VerifyPayment,
+	'leases': Leases,
 	'leases/view': ViewLease,
 	'leases/payment/add': AddPayment,
 	'notification': Notification,
