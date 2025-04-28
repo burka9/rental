@@ -9,16 +9,30 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { ChevronLeftIcon, DownloadIcon, EyeIcon } from "lucide-react";
+import { Check, ChevronLeftIcon, ChevronsUpDown, DownloadIcon, EyeIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useTenantStore } from "@/lib/store/tenants";
 import { usePropertyStore } from "@/lib/store/property";
-import { Lease, Payment, Bank } from "@/lib/types";
-import { toGregorian } from "@/lib/date-converter";
+import { Lease, Payment, Bank, Room } from "@/lib/types";
+import { toEthiopian, toGregorian } from "@/lib/date-converter";
 import { axios, baseURL } from "@/lib/axios";
+import { cn } from "@/lib/utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 // Ethiopian month names
 const monthNames = [
@@ -50,7 +64,7 @@ const formSchema = z.object({
   paidAmount: z.coerce.number().min(0, "Paid amount must be non-negative"),
   paymentDate: dateForm,
   bankId: z.coerce.number().min(1, "Bank is required"),
-  referenceNumber: z.coerce.number().min(0, "Reference number is required"),
+  referenceNumber: z.string().min(0, "Reference number is required"),
   notes: z.string().optional(),
   bankSlipAttachment: z.any().refine((file) => file instanceof File, {
     message: "Bank slip attachment is required",
@@ -180,21 +194,35 @@ export default function ViewPayments() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fetchLease, fetchLeases, leases, fetchPayment } = useTenantStore();
-  const { fetchBanks, banks } = usePropertyStore();
+  const { fetchBanks, banks, fetchRooms, rooms } = usePropertyStore();
   const [lease, setLease] = useState<Lease | null>(null);
   const [creating, setCreating] = useState(false);
-  const [payment, setPayment] = useState<Payment | null>();
+  const [payment, setPayment] = useState<Payment | null>(null);
 
-  // Form setup
+  // Get current Ethiopian date for default values
+  const currentGregDate = new Date();
+  const [currentEthYear, currentEthMonth, currentEthDay] = toEthiopian(
+    currentGregDate.getFullYear(),
+    currentGregDate.getMonth() + 1,
+    currentGregDate.getDate()
+  );
+
+  // Form setup with dynamic default values
   const form = useForm<z.infer<typeof formSchema>>({
     mode: "onChange",
     resolver: zodResolver(formSchema),
     defaultValues: {
-      leaseId: payment?.leaseId,
-      paidAmount: payment?.paidAmount,
-      bankId: payment?.bankId,
-      referenceNumber: payment?.referenceNumber,
-      notes: payment?.notes,
+      leaseId: 0,
+      paidAmount: 0,
+      paymentDate: {
+        day: currentEthDay,
+        month: currentEthMonth,
+        year: currentEthYear,
+      },
+      bankId: 0,
+      referenceNumber: "",
+      notes: "",
+      bankSlipAttachment: undefined,
     },
   });
 
@@ -202,34 +230,37 @@ export default function ViewPayments() {
   const bankId = form.watch("bankId");
 
   const selectedLease = useMemo(() => {
-    if (creating && leaseId !== null) return leases.find(l => l.id === leaseId);
-    
+    if (creating && leaseId !== 0) return leases.find(l => l.id === leaseId);
     if (!leases.length) return null;
     return leases.find(l => l.id === payment?.leaseId);
   }, [payment?.leaseId, leases, creating, leaseId]);
 
   const selectedBank = useMemo(() => {
-    if (creating && bankId !== null) return banks.find(b => b.id === bankId);
-    
+    if (creating && bankId !== 0) return banks.find(b => b.id === bankId);
     if (!banks.length) return null;
     return banks.find(b => b.id === payment?.bankId);
   }, [payment?.bankId, banks, creating, bankId]);
 
-  // Fetch lease and banks
+  // Fetch leases, banks, rooms, and set leaseId from query parameter
   useEffect(() => {
-    setCreating(searchParams.get("create") === "true");
-    const leaseId = Number(searchParams.get("leaseId"));
+    const createMode = searchParams.get("create") === "true";
+    const queryLeaseId = Number(searchParams.get("leaseId"));
+
+    setCreating(createMode);
 
     // Fetch all leases for the dropdown
     fetchLeases();
 
-    // If leaseId is provided, fetch the specific lease
-    if (leaseId && !isNaN(leaseId)) {
-      fetchLease(leaseId)
+    // Fetch all rooms for displaying room numbers
+    fetchRooms();
+
+    // If leaseId is provided in query and in create mode, set the form value
+    if (createMode && queryLeaseId && !isNaN(queryLeaseId)) {
+      fetchLease(queryLeaseId)
         .then(data => {
           if (data) {
             setLease(data);
-            form.setValue("leaseId", leaseId);
+            form.setValue("leaseId", queryLeaseId);
           } else {
             toast.error("Lease not found");
             setLease(null);
@@ -243,28 +274,40 @@ export default function ViewPayments() {
     }
 
     fetchBanks();
-  }, [searchParams, fetchLease, fetchLeases, fetchBanks, form]);
+  }, [searchParams, fetchLease, fetchLeases, fetchBanks, fetchRooms, form]);
 
+  // Fetch payment if viewing an existing payment
   useEffect(() => {
     const id = Number(searchParams.get("id"));
     if (!id) return;
     fetchPayment(id)
       .then((data) => {
         if (data == null) router.push(`/dashboard/payments`);
-        else setPayment(data);
+        else {
+          setPayment(data);
+          // Populate form with payment data in view mode
+          const paymentDate = data.paymentDate ? toEthiopian(
+            new Date(data.paymentDate).getFullYear(),
+            new Date(data.paymentDate).getMonth() + 1,
+            new Date(data.paymentDate).getDate()
+          ) : [currentEthYear, currentEthMonth, currentEthDay];
+          
+          form.reset({
+            leaseId: data.leaseId,
+            paidAmount: data.paidAmount,
+            paymentDate: {
+              day: paymentDate[2],
+              month: paymentDate[1],
+              year: paymentDate[0],
+            },
+            bankId: data.bankId,
+            referenceNumber: data.referenceNumber,
+            notes: data.notes || "",
+          });
+        }
       })
       .catch((error) => console.log(error));
-  }, [fetchPayment, searchParams, router]);
-
-  useEffect(() => {
-    form.reset({
-      leaseId: payment?.leaseId,
-      paidAmount: payment?.paidAmount,
-      bankId: payment?.bankId,
-      referenceNumber: payment?.referenceNumber,
-      notes: payment?.notes,
-    });
-  }, [form, payment]);
+  }, [fetchPayment, searchParams, router, form, currentEthYear, currentEthMonth, currentEthDay]);
 
   // Generate Ethiopian years (±25 years from current)
   const getEthiopianYears = () => {
@@ -371,12 +414,14 @@ export default function ViewPayments() {
                   <ChevronLeftIcon className="h-4 w-4" />
                 </Button>
               </Link>
-              <h1 className="text-xl font-bold">Add Payment</h1>
+              <h1 className="text-xl font-bold">{creating ? "Add Payment" : "View Payment"}</h1>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="default" onClick={form.handleSubmit(handleSubmit)}>
-                Create
-              </Button>
+              {creating && (
+                <Button size="default" onClick={form.handleSubmit(handleSubmit)}>
+                  Create
+                </Button>
+              )}
               <Button
                 size="default"
                 variant="outline"
@@ -384,46 +429,104 @@ export default function ViewPayments() {
                   router.back();
                 }}
               >
-                Cancel
+                {creating ? "Cancel" : "Back"}
               </Button>
             </div>
           </div>
 
+          {/* Display Selected Lease Information */}
+          {selectedLease && (
+            <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900">Selected Lease</h2>
+              <p className="text-sm text-gray-700">Lease ID: {selectedLease.id}</p>
+              <p className="text-sm text-gray-700">Tenant: {selectedLease.tenant.name}</p>
+            </div>
+          )}
+
+          {/* Display Selected Bank Information */}
+          {selectedBank && (
+            <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+              <h2 className="text-lg font-semibold text-gray-900">Selected Bank</h2>
+              <p className="text-sm text-gray-700">Bank Name: {selectedBank.name}</p>
+              <p className="text-sm text-gray-700">Account Number: {selectedBank.accountNumber}</p>
+              <p className="text-sm text-gray-700">Branch: {selectedBank.branch}</p>
+            </div>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-2">
               <div className="grid grid-cols-4 gap-4">
-                <FormField
-                  control={form.control}
-                  name="leaseId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Lease</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={
-                          creating
-                          ? selectedLease?.id?.toString() ?? ""
-                          : payment?.leaseId?.toString() ?? ""
-                        }
-                        disabled={!creating}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Select a lease" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {leases.map((lease: Lease) => (
-                            <SelectItem key={lease.id} value={lease.id.toString()}>
-                              {lease.tenant.name} - Lease #{lease.id}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="col-span-4 sm:col-span-1">
+                  <FormField
+                    control={form.control}
+                    name="leaseId"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Lease</FormLabel>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn(
+                                  "w-[200px] justify-between",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                                disabled={!creating}
+                              >
+                                {field.value
+                                  ? leases.find(
+                                      (lease: Lease) => lease.id === field.value
+                                    )?.tenant.name
+                                  : "Select lease"}
+                                <ChevronsUpDown className="opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[200px] p-0">
+                            <Command>
+                              <CommandInput
+                                placeholder="Search lease..."
+                                className="h-9"
+                              />
+                              <CommandList>
+                                <CommandEmpty>No lease found.</CommandEmpty>
+                                <CommandGroup>
+                                  {leases.map((lease: Lease) => {
+                                    const leaseRooms = rooms.filter((room: Room) => lease.roomIds?.includes(room.id));
+                                    const roomNames = leaseRooms.map((room: Room) => room.name).join(", ");
+                                    const label = `${lease.tenant.name} - Lease #${lease.id}${roomNames ? ` (${roomNames})` : ""}`;
+                                    return (
+                                      <CommandItem
+                                        value={label}
+                                        key={lease.id}
+                                        onSelect={() => {
+                                          form.setValue("leaseId", lease.id);
+                                        }}
+                                      >
+                                        {label}
+                                        <Check
+                                          className={cn(
+                                            "ml-auto",
+                                            lease.id === field.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
@@ -438,6 +541,7 @@ export default function ViewPayments() {
                           min={0}
                           {...field}
                           className="bg-white"
+                          disabled={!creating}
                         />
                       </FormControl>
                       <FormMessage />
@@ -455,6 +559,7 @@ export default function ViewPayments() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value?.toString() ?? ""}
+                          disabled={!creating}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-white">
@@ -483,6 +588,7 @@ export default function ViewPayments() {
                         <Select
                           onValueChange={field.onChange}
                           value={field.value?.toString() ?? ""}
+                          disabled={!creating}
                         >
                           <FormControl>
                             <SelectTrigger className="bg-white">
@@ -509,14 +615,16 @@ export default function ViewPayments() {
                       <FormItem>
                         <FormLabel>Day</FormLabel>
                         <Select
-                          disabled={!form.watch("paymentDate.month")}
+                          disabled={!form.watch("paymentDate.month") || !creating}
                           onValueChange={field.onChange}
                           value={field.value?.toString() ?? ""}
                         >
                           <FormControl>
                             <SelectTrigger
                               className={
-                                form.watch("paymentDate.month") ? "bg-white" : "opacity-60 cursor-default"
+                                form.watch("paymentDate.month") && creating
+                                  ? "bg-white"
+                                  : "opacity-60 cursor-default"
                               }
                             >
                               <SelectValue placeholder="Select a day" />
@@ -547,11 +655,7 @@ export default function ViewPayments() {
                       <FormLabel>Bank</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        defaultValue={
-                          creating
-                          ? selectedBank?.id?.toString() ?? ""
-                          : payment?.bankId?.toString() ?? ""
-                        }
+                        value={field.value?.toString() ?? ""}
                         disabled={!creating}
                       >
                         <FormControl>
@@ -580,10 +684,11 @@ export default function ViewPayments() {
                       <FormLabel>Reference Number</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
+                          type="text"
                           min={0}
                           {...field}
                           className="bg-white"
+                          disabled={!creating}
                         />
                       </FormControl>
                       <FormMessage />
@@ -599,7 +704,11 @@ export default function ViewPayments() {
                       <FormItem>
                         <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Input {...field} className="bg-white" />
+                          <Input
+                            {...field}
+                            className="bg-white"
+                            disabled={!creating}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -632,9 +741,9 @@ export default function ViewPayments() {
               </div>
             </form>
           </Form>
-          <div className="hidden">{lease?.id}</div>
         </div>
       )}
+      <p className="hidden">{lease?.id}</p>
     </>
   );
 }

@@ -3,9 +3,10 @@
 import { PaymentSchedule } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
 import { Badge } from "@/components/ui/badge"
-import { axios } from "@/lib/axios"
-import { toast } from "sonner"
-import { cn, toEthiopianDateString } from "@/lib/utils"
+// import { axios } from "@/lib/axios"
+// import { toast } from "sonner"
+// import { cn, toEthiopianDateString } from "@/lib/utils"
+import { toEthiopianDateString } from "@/lib/utils"
 
 export const columns: ColumnDef<PaymentSchedule>[] = [
   {
@@ -112,37 +113,37 @@ export const columns: ColumnDef<PaymentSchedule>[] = [
       )
     }
   },
-  {
-    id: "Actions",
-    cell: ({ row }) => {
-      const paidAmount = Number(row.original.paidAmount || 0)
-      const payableAmount = Number(row.original.payableAmount || 0)
-      const isPaid = paidAmount >= payableAmount
+  // {
+  //   id: "Actions",
+  //   cell: ({ row }) => {
+  //     const paidAmount = Number(row.original.paidAmount || 0)
+  //     const payableAmount = Number(row.original.payableAmount || 0)
+  //     const isPaid = paidAmount >= payableAmount
       
-      return (
-        <div className="flex items-center gap-1">
-          <Badge
-            variant="default"
-            className={cn(
-              "cursor-pointer",
-              isPaid ? "bg-red-600" : "bg-green-600"
-            )}
-            onClick={() => {
-              axios.post(`/payment/change-status/${row.original.id}`, {
-                status: isPaid ? "UNPAID" : "PAID"
-              })
-                .then(() => {
-                  toast.success(`Payment marked as ${isPaid ? "unpaid" : "paid"}`);
-                  location.reload()
-                })
-                .catch(error => {
-                  console.error(error);
-                  toast.error(`Failed to mark payment as ${isPaid ? "unpaid" : "paid"}`);
-                });
-            }}
-          >Mark {isPaid ? "UNPAID" : "PAID"}</Badge>
-        </div>
-      )
-    }
-  }
+  //     return (
+  //       <div className="flex items-center gap-1">
+  //         <Badge
+  //           variant="default"
+  //           className={cn(
+  //             "cursor-pointer",
+  //             isPaid ? "bg-red-600" : "bg-green-600"
+  //           )}
+  //           onClick={() => {
+  //             axios.post(`/payment/change-status/${row.original.id}`, {
+  //               status: isPaid ? "UNPAID" : "PAID"
+  //             })
+  //               .then(() => {
+  //                 toast.success(`Payment marked as ${isPaid ? "unpaid" : "paid"}`);
+  //                 location.reload()
+  //               })
+  //               .catch(error => {
+  //                 console.error(error);
+  //                 toast.error(`Failed to mark payment as ${isPaid ? "unpaid" : "paid"}`);
+  //               });
+  //           }}
+  //         >Mark {isPaid ? "UNPAID" : "PAID"}</Badge>
+  //       </div>
+  //     )
+  //   }
+  // }
 ]

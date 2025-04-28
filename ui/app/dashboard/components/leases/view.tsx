@@ -428,7 +428,7 @@ export default function ViewLease() {
             {creating ? "Cancel" : editing ? "Cancel" : "Delete"}
           </Button>
           {!creating && !editing && lease && (
-            <Link href={`/dashboard/leases/payment/add?leaseId=${lease.id}`}>
+            <Link href={`/dashboard/payments/view?create=true&leaseId=${lease.id}`}>
               <Button className="bg-blue-600 hover:bg-blue-700">
                 Add Payment
               </Button>

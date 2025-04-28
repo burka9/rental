@@ -83,7 +83,7 @@ export type Payment = {
 	paymentDate: Date;
 	paymentMethod: "BANK_TRANSFER";
 	bankId: number;
-	referenceNumber: number;
+	referenceNumber: string;
 	notes: string;
 	isVerified: boolean;
 	verifiedAt: Date;

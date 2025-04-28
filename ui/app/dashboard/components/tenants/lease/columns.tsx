@@ -7,6 +7,10 @@ import Link from "next/link"
 
 export const columns: ColumnDef<Lease>[] = [
 	{
+		"accessorKey": "id",
+		"header": "Lease #ID"
+	},
+	{
 		accessorKey: "startDate",
 		header: "Start Date",
 		cell: ({ row }) => {
