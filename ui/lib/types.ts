@@ -59,7 +59,10 @@ export type Lease = {
 	lateFee: number;
 	lateFeeType: "PERCENTAGE" | "FIXED";
 	lateFeeGracePeriodInDays: number;
-	files: string[];
+	files: {
+		filename: string;
+		path: string;
+	}[];
 	active: boolean;
 	tenant: Tenant;
 	paymentSchedule: PaymentSchedule[];

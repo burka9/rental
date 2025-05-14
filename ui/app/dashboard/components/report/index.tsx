@@ -161,12 +161,18 @@ const ReportPage = () => {
                       <TableCell className="text-gray-900">{payment.tenantName}</TableCell>
                       <TableCell className="text-gray-900">{toEthiopianDateString(new Date(payment.dueDate))}</TableCell>
                       <TableCell className="text-gray-900">ETB {payment.paymentAmount.toLocaleString()}</TableCell>
-                      <TableCell>
+                      <TableCell className="flex gap-2 items-center">
                         <Link
                           href={`/dashboard/leases/view?id=${payment.leaseId}`}
                           className="text-sm bg-blue-600 text-white rounded py-1 px-3 hover:bg-blue-700 transition-colors"
                         >
                           View
+                        </Link>
+                        <Link
+                          href={`/dashboard/payments/view?create=true&leaseId=${payment.leaseId}`}
+                          className="text-sm bg-green-600 text-white rounded py-1 px-3 hover:bg-green-700 transition-colors"
+                        >
+                          Pay Now
                         </Link>
                       </TableCell>
                     </TableRow>

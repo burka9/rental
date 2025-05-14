@@ -12,6 +12,9 @@ type StoreState = {
   paymentCurrentPage: number
   paymentPageSize: number
   leases: Lease[]
+  totalLeases: number
+  leaseCurrentPage: number
+  leasePageSize: number
   payments: Payment[]
   basicReport?: BasicReport
 }
@@ -22,7 +25,7 @@ type StoreAction = {
   createTenant: (tenant: FormData) => Promise<boolean>
   updateTenant: (tenant: FormData) => Promise<Tenant | null>
   deleteTenant: (id: number) => Promise<boolean>
-  fetchLeases: () => Promise<Lease[]>
+  fetchLeases: (page?: number, limit?: number) => Promise<Lease[]>
   fetchLease: (id: number) => Promise<Lease | null>
   createLease: (lease: Partial<Lease>) => Promise<boolean>
   updateLease: (lease: Partial<Lease>) => Promise<Lease | null>
@@ -33,6 +36,8 @@ type StoreAction = {
   createPayment: (payment: Partial<Payment>) => Promise<boolean>
   updatePayment: (payment: Partial<Payment>) => Promise<Payment | null>
   deletePayment: (id: number) => Promise<boolean>
+  addFilesToLease: (id: number, data: FormData) => Promise<Lease | null>
+  removeFile: (leaseId: number, filePath: string) => Promise<boolean>
 }
 
 type Store = StoreState & StoreAction
@@ -45,9 +50,16 @@ export const useTenantStore = create<Store>((set) => ({
   tenantPageSize: 10,
   paymentCurrentPage: 1,
   paymentPageSize: 10,
+  leases: [],
+  totalLeases: 0,
+  leaseCurrentPage: 1,
+  leasePageSize: 10,
+  payments: [],
+  basicReport: undefined,
+
   async fetchTenants(page = 1, limit = 10, search = "", isShareholder = "all", officeNumber = "all") {
-		console.log('fetch tenants: ', search, isShareholder)
-		
+    console.log('fetch tenants: ', search, isShareholder)
+    
     const { user } = useStore.getState()
 
     try {
@@ -78,6 +90,7 @@ export const useTenantStore = create<Store>((set) => ({
       return []
     }
   },
+
   fetchTenant: async (id: number) => {
     const { user } = useStore.getState()
 
@@ -93,6 +106,7 @@ export const useTenantStore = create<Store>((set) => ({
       return null
     }
   },
+
   createTenant: async (tenant: FormData) => {
     const { user } = useStore.getState()
 
@@ -114,6 +128,7 @@ export const useTenantStore = create<Store>((set) => ({
       return false
     }
   },
+
   updateTenant: async (tenant: FormData) => {
     const { user } = useStore.getState()
 
@@ -134,6 +149,7 @@ export const useTenantStore = create<Store>((set) => ({
       return null
     }
   },
+
   deleteTenant: async (id: number) => {
     const { user } = useStore.getState()
 
@@ -155,8 +171,7 @@ export const useTenantStore = create<Store>((set) => ({
     }
   },
 
-  leases: [],
-  async fetchLeases() {
+  async fetchLeases(page = 1, limit = 10) {
     const { user } = useStore.getState()
 
     try {
@@ -164,15 +179,27 @@ export const useTenantStore = create<Store>((set) => ({
         headers: {
           Authorization: `Bearer ${user?.token}`
         },
+        params: {
+          page,
+          limit,
+        },
       })
 
-      set({ leases: res.data.data as Lease[] })
-      return res.data.data as Lease[]
+      const { leases, pagination } = res.data.data
+      set({
+        leases,
+        totalLeases: pagination.total,
+        leaseCurrentPage: pagination.page,
+        leasePageSize: pagination.limit,
+      })
+      return leases as Lease[]
     } catch (err) {
       console.log(err)
+      set({ leases: [], totalLeases: 0 })
       return []
     }
   },
+
   fetchLease: async (id: number) => {
     const { user } = useStore.getState()
 
@@ -182,12 +209,14 @@ export const useTenantStore = create<Store>((set) => ({
           Authorization: `Bearer ${user?.token}`
         },
       })
+
       return res.data.data as Lease
     } catch (err) {
       console.log(err)
       return null
     }
   },
+
   createLease: async (lease: Partial<Lease>) => {
     const { user } = useStore.getState()
 
@@ -200,6 +229,7 @@ export const useTenantStore = create<Store>((set) => ({
 
       set(state => ({
         leases: [...state.leases, res.data.data],
+        totalLeases: state.totalLeases + 1,
       }))
       return res.data.success
     } catch (err) {
@@ -207,6 +237,7 @@ export const useTenantStore = create<Store>((set) => ({
       return false
     }
   },
+
   updateLease: async (lease: Partial<Lease>) => {
     const { user } = useStore.getState()
 
@@ -226,6 +257,7 @@ export const useTenantStore = create<Store>((set) => ({
       return null
     }
   },
+
   deleteLease: async (id: number) => {
     const { user } = useStore.getState()
 
@@ -238,6 +270,7 @@ export const useTenantStore = create<Store>((set) => ({
 
       set(state => ({
         leases: state.leases.filter(lease => lease.id !== id),
+        totalLeases: state.totalLeases - 1,
       }))
       return res.data.success
     } catch (err) {
@@ -245,8 +278,6 @@ export const useTenantStore = create<Store>((set) => ({
       return false
     }
   },
-
-  payments: [],
 
   fetchBasicReport: async () => {
     const { user } = useStore.getState()
@@ -267,8 +298,8 @@ export const useTenantStore = create<Store>((set) => ({
   },
 
   async fetchPayments(page = 1, limit = 10, search = "", isVerified = "all") {
-		console.log('fetch payments: ', search, isVerified)
-		
+    console.log('fetch payments: ', search, isVerified)
+    
     const { user } = useStore.getState()
 
     try {
@@ -298,6 +329,7 @@ export const useTenantStore = create<Store>((set) => ({
       return []
     }
   },
+
   fetchPayment: async (id: number) => {
     const { user } = useStore.getState()
 
@@ -313,6 +345,7 @@ export const useTenantStore = create<Store>((set) => ({
       return null
     }
   },
+
   createPayment: async (payment: Partial<Payment>) => {
     const { user } = useStore.getState()
 
@@ -332,6 +365,7 @@ export const useTenantStore = create<Store>((set) => ({
       return false
     }
   },
+
   updatePayment: async (payment: Partial<Payment>) => {
     const { user } = useStore.getState()
 
@@ -351,6 +385,7 @@ export const useTenantStore = create<Store>((set) => ({
       return null
     }
   },
+
   deletePayment: async (id: number) => {
     const { user } = useStore.getState()
 
@@ -370,4 +405,46 @@ export const useTenantStore = create<Store>((set) => ({
       return false
     }
   },
+  async addFilesToLease(id, data) {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.post(`/lease/add-files/${id}`, data, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`,
+          "Content-Type": "multipart/form-data"
+        },
+      })
+
+      set(state => ({
+        leases: state.leases.map(l => l.id === res.data.data.id ? res.data.data : l),
+      }))
+      return res.data.data as Lease
+    } catch (err) {
+      console.log(err)
+      return null
+    }
+  },
+  async removeFile(leaseId, filePath) {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.post(`/lease/remove-file`, {
+        leaseId,
+        filePath
+      }, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+      })
+
+      set(state => ({
+        leases: state.leases.map(l => l.id === res.data.data.id ? res.data.data : l),
+      }))
+      return res.data.success
+    } catch (err) {
+      console.log(err)
+      return false
+    }
+  }
 }))

@@ -18,6 +18,7 @@ type Store = StoreState & StoreAction
 
 export const useStore = create<Store>(set => ({
 	setUser: user => {
+		localStorage.setItem('user', JSON.stringify(user))
 		set({ user })
 	},
 	fetchUser: async () => {

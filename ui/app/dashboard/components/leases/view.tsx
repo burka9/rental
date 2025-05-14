@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
 import { Lease, Room } from "@/lib/types";
@@ -10,7 +11,7 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import Link from "next/link";
-import { ChevronLeftIcon, X } from "lucide-react";
+import { ChevronLeftIcon, X, Download, Eye, Trash2Icon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ import { toEthiopian, toGregorian } from '@/lib/date-converter';
 import { usePropertyStore } from "@/lib/store/property";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { baseURL } from "@/lib/axios";
 
 // Ethiopian month names
 const monthNames = [
@@ -75,9 +77,12 @@ export default function ViewLease() {
   const [lease, setLease] = useState<Lease | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [rentedRooms, setRentedRooms] = useState<Room[]>([]);
+  const [showUploadDialog, setShowUploadDialog] = useState(false); // State for upload dialog
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // State for selected files
+  const [leaseFiles, setLeaseFiles] = useState<{ id: number; name: string; url: string }[]>([]); // State for lease files
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { fetchLease, createLease, updateLease, deleteLease, tenants, fetchTenants } = useTenantStore();
+  const { fetchLease, createLease, updateLease, deleteLease, tenants, fetchTenants, addFilesToLease, removeFile } = useTenantStore();
   const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -111,7 +116,7 @@ export default function ViewLease() {
     name: "rooms",
   });
   
-  // Fetch buildings and rooms only once on component mount
+  // Fetch buildings, rooms, and files only once on component mount or lease change
   useEffect(() => {
     fetchBuildings();
     fetchRooms();
@@ -138,9 +143,22 @@ export default function ViewLease() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lease?.id, fetchRooms]); // Depend on lease.id instead of lease.roomIds
 
+  // Fetch lease files
+  const fetchLeaseFiles = useCallback(async () => {
+    const files: any = lease?.files ?? [];
+    setLeaseFiles(files.map((f: any, i: any) => ({
+      id: i,
+      name: f.filename,
+      url: baseURL + '/' + f.path,
+      path: f.path
+    })))
+    return []
+  }, [lease]);
+
   useEffect(() => {
     fetchTenants();
-  }, [fetchTenants]);
+    if (lease) fetchLeaseFiles();
+  }, [fetchTenants, lease, fetchLeaseFiles]);
 
   useEffect(() => {
     const id = searchParams.get("id");
@@ -347,6 +365,82 @@ export default function ViewLease() {
     return Array.from({ length: 51 }, (_, idx) => currentEthYear - 25 + idx);
   };
 
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!lease || selectedFiles.length === 0) {
+      toast.error("No lease selected or no files to upload");
+      return;
+    }
+
+    const formData = new FormData();
+    selectedFiles.forEach((file) => {
+      formData.append("files", file);
+    });
+
+    try {
+      const updatedLease = await addFilesToLease(lease.id, formData)
+      
+      if (!updatedLease) {
+        // toast.error("Failed to upload files");
+        toast.error(`Failed to upload files`);
+        return;
+      }
+
+      // if (response.ok) {
+        toast.success("Files uploaded successfully");
+        setShowUploadDialog(false);
+        setSelectedFiles([]); // Clear files after successful upload
+        fetchLeaseFiles(); // Refresh file list
+        // router.refresh()
+        window.location.reload()
+      // } else {
+        // const errorText = await response.text();
+        // toast.error(`Failed to upload files: ${errorText}`);
+      // }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("An error occurred while uploading files");
+    }
+  };
+
+  // Handle file selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const files = Array.from(e.target.files).filter(file =>
+        file.type === "application/pdf" || file.type.startsWith("image/")
+      );
+      if (files.length === 0) {
+        toast.error("Please select only PDF or image files");
+        return;
+      }
+      setSelectedFiles(files);
+    }
+  };
+
+  // Handle file open (new tab)
+  const handleOpenFile = (url: string) => {
+    window.open(url, "_blank");
+  };
+
+  // Handle file download
+  const handleDownloadFile = (url: string, name: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDeleteFile = async (file: any) => {
+    console.log('here')
+    if (!lease) return
+    
+    await removeFile(lease?.id, file.path)
+
+    window.location.reload()
+  }
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
@@ -428,11 +522,19 @@ export default function ViewLease() {
             {creating ? "Cancel" : editing ? "Cancel" : "Delete"}
           </Button>
           {!creating && !editing && lease && (
-            <Link href={`/dashboard/payments/view?create=true&leaseId=${lease.id}`}>
-              <Button className="bg-blue-600 hover:bg-blue-700">
-                Add Payment
+            <>
+              <Link href={`/dashboard/payments/view?create=true&leaseId=${lease.id}`}>
+                <Button className="bg-blue-600 hover:bg-blue-700">
+                  Add Payment
+                </Button>
+              </Link>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={() => setShowUploadDialog(true)}
+              >
+                Add Files
               </Button>
-            </Link>
+            </>
           )}
         </div>
       </div>
@@ -450,6 +552,52 @@ export default function ViewLease() {
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
                 Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* File Upload Dialog */}
+        <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+          <DialogContent>
+            <DialogTitle>Upload Files</DialogTitle>
+            <DialogDescription>
+              Select PDF or image files to upload for this lease.
+            </DialogDescription>
+            <div className="py-4">
+              <Input
+                type="file"
+                multiple
+                accept="application/pdf,image/*"
+                onChange={handleFileChange}
+                className="border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              {selectedFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  <h4 className="text-sm font-medium text-gray-700">Selected Files:</h4>
+                  <ul className="list-disc pl-5">
+                    {selectedFiles.map((file, index) => (
+                      <li key={index} className="text-sm text-gray-600">
+                        {file.name} ({(file.size / 1024).toFixed(2)} KB)
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowUploadDialog(false);
+                setSelectedFiles([]);
+              }}>
+                Cancel
+              </Button>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700"
+                onClick={handleFileUpload}
+                disabled={selectedFiles.length === 0}
+              >
+                Upload
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1033,6 +1181,61 @@ export default function ViewLease() {
             </Card>
           </form>
         </Form>
+
+        {!editing && lease && (
+          <Card className="border-none shadow-md rounded-lg">
+            <CardHeader>
+              <h2 className="text-xl font-semibold text-gray-900">Documents</h2>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {leaseFiles.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">File Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {leaseFiles.map((file) => (
+                        <tr key={file.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{file.name}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="mr-2"
+                              onClick={() => handleOpenFile(file.url)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownloadFile(file.url, file.name)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteFile(file)}
+                            >
+                              <Trash2Icon className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No files uploaded for this lease.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {!editing && lease && lease.paymentSchedule && lease.paymentSchedule.length > 0 && (
           <Card className="border-none shadow-md rounded-lg">

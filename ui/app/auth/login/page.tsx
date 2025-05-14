@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { axios } from "@/lib/axios";
+// import { useStore } from "@/lib/store";
+// import { useRouter } from "next/navigation";
 
 const loginSchema = z.object({
   phone: z.string().min(4, "Phone number must be at least 10 characters"),
@@ -21,6 +23,9 @@ const loginSchema = z.object({
 });
 
 const LoginPage = () => {
+  // const router = useRouter()
+  // const { setUser } = useStore()
+  
   const form = useForm({
     resolver: zodResolver(loginSchema),
   });
@@ -29,6 +34,8 @@ const LoginPage = () => {
     axios.post('/auth/login', data, { withCredentials: true })
       .then(res => {
         console.log(res.data)
+        // setUser(res.data.user)
+        // router.push('/dashboard')
       })
       .catch(error => {
         console.log(error)
@@ -53,7 +60,7 @@ const LoginPage = () => {
                 <Input
 									{...field}
 									placeholder="Phone number"
-									type="tel"
+									type="text"
 								/>
                 <FormMessage></FormMessage>
               </FormItem>

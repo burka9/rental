@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,8 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { Check, ChevronLeftIcon, ChevronsUpDown, DownloadIcon, EyeIcon } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useTenantStore } from "@/lib/store/tenants";
 import { usePropertyStore } from "@/lib/store/property";
@@ -66,17 +65,14 @@ const formSchema = z.object({
   bankId: z.coerce.number().min(1, "Bank is required"),
   referenceNumber: z.string().min(0, "Reference number is required"),
   notes: z.string().optional(),
-  bankSlipAttachment: z.any().refine((file) => file instanceof File, {
-    message: "Bank slip attachment is required",
-  }),
+  bankSlipAttachment: z.any().optional(),
+  invoiceAttachment: z.any().optional(),
 });
 
-// Component to handle file display and download
+// Component to handle file display and download for Bank Slip
 const BankSlipDisplay = ({ filePath }: { filePath: string }) => {
   const fileUrl = `${baseURL}/${filePath}`;
-  const isPdf = filePath.toLowerCase().endsWith('.pdf');
   const fileName = filePath.split('/').pop() || 'bank-slip';
-  const [imageError, setImageError] = useState(false);
 
   const handleDownload = async () => {
     try {
@@ -100,90 +96,73 @@ const BankSlipDisplay = ({ filePath }: { filePath: string }) => {
   return (
     <div className="col-span-full">
       <FormLabel className="text-sm font-medium text-gray-700">Bank Slip</FormLabel>
-      <div className="mt-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            {isPdf ? (
-              <div className="relative w-full h-80 bg-gray-50 rounded-md overflow-hidden">
-                <iframe
-                  src={`${fileUrl}#toolbar=0`}
-                  className="w-full h-full"
-                  title="Bank Slip PDF Preview"
-                />
-                <div className="absolute bottom-2 left-2 bg-gray-800 text-white text-xs px-2 py-1 rounded">
-                  PDF Preview
-                </div>
-              </div>
-            ) : imageError ? (
-              <div className="w-full h-80 bg-gray-100 rounded-md flex items-center justify-center">
-                <p className="text-gray-500 text-sm">Failed to load image</p>
-              </div>
-            ) : (
-              <div className="relative w-full h-80 bg-gray-50 rounded-md overflow-hidden">
-                <Image
-                  src={fileUrl}
-                  alt="Bank Slip"
-                  fill
-                  className="object-contain"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  onError={() => setImageError(true)}
-                />
-              </div>
-            )}
-          </div>
-          <div className="flex flex-col justify-between sm:w-48 gap-2">
-            <div>
-              <p className="text-sm font-medium text-gray-900">File Name</p>
-              <p className="text-sm text-gray-500 truncate">{fileName}</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              {isPdf ? (
-                <Button
-                  asChild
-                  className="w-full bg-gray-600 hover:bg-gray-700 text-white flex items-center gap-2"
-                >
-                  <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-                    <EyeIcon className="h-4 w-4" />
-                    View File
-                  </a>
-                </Button>
-              ) : (
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button className="w-full bg-gray-600 hover:bg-gray-700 text-white flex items-center gap-2">
-                      <EyeIcon className="h-4 w-4" />
-                      Full Screen
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl p-0">
-                    <div className="relative w-full h-[80vh]">
-                      {imageError ? (
-                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                          <p className="text-gray-500 text-sm">Failed to load image</p>
-                        </div>
-                      ) : (
-                        <Image
-                          src={fileUrl}
-                          alt="Bank Slip Full Screen"
-                          fill
-                          className="object-contain"
-                          sizes="100vw"
-                          onError={() => setImageError(true)}
-                        />
-                      )}
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              )}
-              <Button
-                onClick={handleDownload}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2"
-              >
-                <DownloadIcon className="h-4 w-4" />
-                Download
-              </Button>
-            </div>
-          </div>
+      <div className="mt-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+        <p className="text-sm text-gray-600 truncate max-w-xs">{fileName}</p>
+        <div className="flex gap-2">
+          <Button
+            asChild
+            className="bg-gray-600 hover:bg-gray-700 text-white flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium"
+          >
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+              <EyeIcon className="h-4 w-4" /> View File
+            </a>
+          </Button>
+          <Button
+            onClick={handleDownload}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium"
+          >
+            <DownloadIcon className="h-4 w-4" /> Download
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Component to handle file display and download for Invoice
+const InvoiceDisplay = ({ filePath }: { filePath: string }) => {
+  const fileUrl = `${baseURL}/${filePath}`;
+  const fileName = filePath.split('/').pop() || 'invoice';
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error('Failed to fetch file');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast.error('Failed to download file');
+    }
+  };
+
+  return (
+    <div className="col-span-full">
+      <FormLabel className="text-sm font-medium text-gray-700">Invoice</FormLabel>
+      <div className="mt-2 bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+        <p className="text-sm text-gray-600 truncate max-w-xs">{fileName}</p>
+        <div className="flex gap-2">
+          <Button
+            asChild
+            className="bg-gray-600 hover:bg-gray-700 text-white flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium"
+          >
+            <a href={fileUrl} target="_blank" rel="noopener noreferrer">
+              <EyeIcon className="h-4 w-4" /> View File
+            </a>
+          </Button>
+          <Button
+            onClick={handleDownload}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium"
+          >
+            <DownloadIcon className="h-4 w-4" /> Download
+          </Button>
         </div>
       </div>
     </div>
@@ -198,6 +177,7 @@ export default function ViewPayments() {
   const [lease, setLease] = useState<Lease | null>(null);
   const [creating, setCreating] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(null);
+  const [admin] = useState(true); // Default to true
 
   // Get current Ethiopian date for default values
   const currentGregDate = new Date();
@@ -223,17 +203,26 @@ export default function ViewPayments() {
       referenceNumber: "",
       notes: "",
       bankSlipAttachment: undefined,
+      invoiceAttachment: undefined,
     },
   });
 
-  const leaseId = form.watch("leaseId");
+  // const leaseId = form.watch("leaseId");
   const bankId = form.watch("bankId");
 
-  const selectedLease = useMemo(() => {
-    if (creating && leaseId !== 0) return leases.find(l => l.id === leaseId);
-    if (!leases.length) return null;
-    return leases.find(l => l.id === payment?.leaseId);
-  }, [payment?.leaseId, leases, creating, leaseId]);
+  const [selectedLease, setselectedLease] = useState()
+  
+  // const selectedLease = useMemo(() => {
+  //   const _leaseId = searchParams.get("leaseId") || 0;
+    
+  //   if (creating && _leaseId !== 0) {
+  //     console.log(payment?.lease)
+  //     return payment?.lease
+  //   }
+  //   if (!leases.length) return null;
+  //   return payment?.lease
+  //   // return leases.find(l => l.id === payment?.leaseId);
+  // }, [payment, leases, creating, searchParams]);
 
   const selectedBank = useMemo(() => {
     if (creating && bankId !== 0) return banks.find(b => b.id === bankId);
@@ -244,7 +233,7 @@ export default function ViewPayments() {
   // Fetch leases, banks, rooms, and set leaseId from query parameter
   useEffect(() => {
     const createMode = searchParams.get("create") === "true";
-    const queryLeaseId = Number(searchParams.get("leaseId"));
+    const queryLeaseId = Number(searchParams.get("leaseId") || searchParams.get("id"));
 
     setCreating(createMode);
 
@@ -254,13 +243,16 @@ export default function ViewPayments() {
     // Fetch all rooms for displaying room numbers
     fetchRooms();
 
+
     // If leaseId is provided in query and in create mode, set the form value
-    if (createMode && queryLeaseId && !isNaN(queryLeaseId)) {
+    if (queryLeaseId && !isNaN(queryLeaseId)) {
       fetchLease(queryLeaseId)
         .then(data => {
           if (data) {
             setLease(data);
+            console.log(data.tenant)
             form.setValue("leaseId", queryLeaseId);
+            setselectedLease(data as any)
           } else {
             toast.error("Lease not found");
             setLease(null);
@@ -352,7 +344,7 @@ export default function ViewPayments() {
 
     // Prepare FormData for submission
     const formData = new FormData();
-    const payment: Partial<Payment> = {
+    const payment = {
       leaseId: values.leaseId,
       paidAmount: values.paidAmount,
       paymentDate: new Date(paymentDate),
@@ -360,6 +352,7 @@ export default function ViewPayments() {
       bankId: values.bankId,
       referenceNumber: values.referenceNumber,
       notes: values.notes || "",
+      verified: admin && values.invoiceAttachment instanceof File, // Set verified to true if admin and invoice is attached
     };
 
     // Append payment fields to FormData
@@ -371,9 +364,12 @@ export default function ViewPayments() {
       }
     });
 
-    // Append file to FormData
+    // Append files to FormData
     if (values.bankSlipAttachment) {
       formData.append("bankSlipAttachment", values.bankSlipAttachment);
+    }
+    if (admin && values.invoiceAttachment) {
+      formData.append("invoiceAttachment", values.invoiceAttachment);
     }
 
     try {
@@ -436,16 +432,18 @@ export default function ViewPayments() {
 
           {/* Display Selected Lease Information */}
           {selectedLease && (
-            <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
-              <h2 className="text-lg font-semibold text-gray-900">Selected Lease</h2>
-              <p className="text-sm text-gray-700">Lease ID: {selectedLease.id}</p>
-              <p className="text-sm text-gray-700">Tenant: {selectedLease.tenant.name}</p>
-            </div>
+            <Link href={`/dashboard/leases/view?id=${(selectedLease as any)?.id}`}>
+              <div className="bg-gray-50 p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md">
+                <h2 className="text-lg font-semibold text-gray-900">Selected Lease</h2>
+                <p className="text-sm text-gray-700">Lease ID: {(selectedLease as any)?.id}</p>
+                <p className="text-sm text-gray-700">Tenant: {(selectedLease as any)?.tenant.name}</p>
+              </div>
+            </Link>
           )}
 
           {/* Display Selected Bank Information */}
           {selectedBank && (
-            <div className="bg-gray-50 p-4 rounded-lg shadow-sm">
+            <div className="bg-gray-50 p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md">
               <h2 className="text-lg font-semibold text-gray-900">Selected Bank</h2>
               <p className="text-sm text-gray-700">Bank Name: {selectedBank.name}</p>
               <p className="text-sm text-gray-700">Account Number: {selectedBank.accountNumber}</p>
@@ -487,7 +485,7 @@ export default function ViewPayments() {
                           <PopoverContent className="w-[200px] p-0">
                             <Command>
                               <CommandInput
-                                placeholder="Search lease..."
+                                placeholder="Search room number..."
                                 className="h-9"
                               />
                               <CommandList>
@@ -496,16 +494,16 @@ export default function ViewPayments() {
                                   {leases.map((lease: Lease) => {
                                     const leaseRooms = rooms.filter((room: Room) => lease.roomIds?.includes(room.id));
                                     const roomNames = leaseRooms.map((room: Room) => room.name).join(", ");
-                                    const label = `${lease.tenant.name} - Lease #${lease.id}${roomNames ? ` (${roomNames})` : ""}`;
+                                    const searchableValue = roomNames || lease.tenant.name;
                                     return (
                                       <CommandItem
-                                        value={label}
+                                        value={searchableValue}
                                         key={lease.id}
                                         onSelect={() => {
                                           form.setValue("leaseId", lease.id);
                                         }}
                                       >
-                                        {label}
+                                        {`${lease.tenant.name} - Lease #${lease.id}${roomNames ? ` (${roomNames})` : ""}`}
                                         <Check
                                           className={cn(
                                             "ml-auto",
@@ -717,26 +715,51 @@ export default function ViewPayments() {
                 </div>
 
                 {creating ? (
-                  <FormField
-                    control={form.control}
-                    name="bankSlipAttachment"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bank Slip Attachment</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="file"
-                            accept=".pdf,.jpg,.jpeg,.png"
-                            onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
-                            className="bg-white"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="bankSlipAttachment"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Bank Slip Attachment</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="file"
+                              accept=".pdf,.jpg,.jpeg,.png"
+                              onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                              className="bg-white"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {admin && (
+                      <FormField
+                        control={form.control}
+                        name="invoiceAttachment"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Invoice Attachment</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
+                                className="bg-white"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
+                  </>
                 ) : (
-                  payment?.bankSlipPath && <BankSlipDisplay filePath={payment.bankSlipPath} />
+                  <>
+                    {payment?.bankSlipPath && <BankSlipDisplay filePath={payment.bankSlipPath} />}
+                    {payment?.invoicePath && <InvoiceDisplay filePath={payment.invoicePath} />}
+                  </>
                 )}
               </div>
             </form>
