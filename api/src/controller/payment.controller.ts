@@ -106,11 +106,16 @@ export async function createPayment(payment: Partial<Payment>) {
         throw new Error("Missing required fields")
     }
 
+    // TODO: remove later
+    await markPaidUntilNow(payment.leaseId)
+    
     const newPayment = PaymentRepository.create({
         ...payment,
         paymentDate: new Date(),
-        isVerified: false,
+        isVerified: payment.isVerified || false,
+        bankSlipPath: payment.invoicePath,
     })
+    
     return await PaymentRepository.save(newPayment)
 }
 
@@ -194,6 +199,25 @@ export async function changeStatus(scheduleId: number, paid: boolean) {
     await PaymentScheduleRepository.update(scheduleId, { paidAmount: paid ? schedule.payableAmount : 0 })
     return await PaymentScheduleRepository.findOne({
         where: { id: scheduleId },
+        relations: ['lease']
+    })
+}
+
+export async function markPaidUntilNow(leaseId: number) {
+    // for all schedules with leaseId, set paidAmount to payableAmount for all schedules that were not already paid until today
+    const schedules = await PaymentScheduleRepository.find({
+        where: { leaseId },
+        relations: ['lease']
+    })
+
+    for (const schedule of schedules) {
+        if (schedule.paidAmount < schedule.payableAmount && schedule.dueDate < new Date()) {
+            await PaymentScheduleRepository.update(schedule.id, { paidAmount: schedule.payableAmount })
+        }
+    }
+
+    return await PaymentScheduleRepository.find({
+        where: { leaseId },
         relations: ['lease']
     })
 }

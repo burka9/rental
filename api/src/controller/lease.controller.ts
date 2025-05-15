@@ -7,7 +7,7 @@ import { toEthiopian, toGregorian } from "../lib/date-converter"
 export const LeaseRepository = Database.getRepository(Lease)
 export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
 
-export async function getLease(id?: number) {
+export async function getLease(id?: number, page: number = 1, limit: number = 10) {
     if (id) {
         return await LeaseRepository.findOne({
             where: { id },
@@ -18,35 +18,39 @@ export async function getLease(id?: number) {
             }
         })
     }
-    return await LeaseRepository.find({
+
+    const skip = (page - 1) * limit;
+    const [leases, total] = await LeaseRepository.findAndCount({
+        skip,
+        take: limit,
         relations: {
             paymentSchedule: true,
             payments: true,
             tenant: true
         }
-    })
+    });
+
+    return {
+        leases,
+        pagination: {
+            total,
+            page,
+            limit,
+        }
+    };
 }
 
 export async function createLease(lease: Partial<Lease>) {
-    // Start a transaction to ensure both lease and payment schedule are created
     return await Database.transaction(async transactionalEntityManager => {
-        // Validate required fields
-        // if (!lease.tenantId || !lease.partitionIds || !lease.startDate || !lease.endDate) {
-        //     throw new Error("Missing required fields")
-        // }
-
-        // Create and save the lease
         const newLease = LeaseRepository.create({
             ...lease,
-            active: true // New leases are active by default
+            active: true
         })
         const savedLease = await transactionalEntityManager.save(newLease)
 
-        // Generate payment schedule based on lease terms
         const schedules = generatePaymentSchedule(savedLease)
         const savedSchedules = await transactionalEntityManager.save(PaymentSchedule, schedules)
 
-        // Return lease with payment schedule
         return await transactionalEntityManager.findOne(Lease, {
             where: { id: savedLease.id },
             relations: {
@@ -65,7 +69,6 @@ export async function updateLease(id: number, lease: Partial<Lease>) {
         throw new Error("Lease not found")
     }
 
-    // Don't allow updating certain fields after creation
     delete lease.tenantId
     delete lease.roomIds
 
@@ -80,7 +83,6 @@ export async function updateLease(id: number, lease: Partial<Lease>) {
 }
 
 export async function deleteLease(id: number) {
-    // Soft delete - just mark as inactive
     const lease = await LeaseRepository.findOne({
         where: { id }
     })
@@ -98,7 +100,6 @@ function generatePaymentSchedule(lease: Lease): Partial<PaymentSchedule>[] {
     const paymentIntervalInMonths = Number(interval);
     const schedule: Partial<PaymentSchedule>[] = [];
   
-    // Convert Gregorian startDate and endDate to Ethiopian
     const ethStart = toEthiopian([startDate.getFullYear(), startDate.getMonth() + 1, startDate.getDate()]);
     const ethEnd = toEthiopian([endDate.getFullYear(), endDate.getMonth() + 1, endDate.getDate()]);
   
@@ -141,7 +142,7 @@ function generatePaymentSchedule(lease: Lease): Partial<PaymentSchedule>[] {
   
         if (!isBefore(nextPaymentDateGregorian, leaseEndGregorian)) {
             let ethMonthsRemaining = (ethEnd[0] - currentEth[0]) * 12 + (ethEnd[1] - currentEth[1]);
-            if (ethEnd[2] > currentEth[2]) ethMonthsRemaining += 1; // Fix for missing last month
+            if (ethEnd[2] > currentEth[2]) ethMonthsRemaining += 1;
             if (ethEnd[1] === 13) ethMonthsRemaining -= 1;
   
             const finalAmount = totalAmountPerMonth * Math.max(ethMonthsRemaining, 1);
@@ -172,7 +173,6 @@ function generatePaymentSchedule(lease: Lease): Partial<PaymentSchedule>[] {
     return schedule;
 }
 
-
 export async function getLeasesByTenant(tenantId: number) {
     return await LeaseRepository.find({
         where: { tenantId },
@@ -191,4 +191,4 @@ export async function getActiveLeases() {
             payments: true
         }
     })
-} 
+}

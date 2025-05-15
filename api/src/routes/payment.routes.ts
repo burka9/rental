@@ -1,36 +1,6 @@
 import { Router } from 'express'
-import multer from 'multer'
-import path from 'path'
 import { createPayment, verifyPayment, getPayment, getOverduePaymentSchedule, changeStatus, getPayments } from '../controller/payment.controller'
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const fileType = file.fieldname === 'bankSlip' ? 'bankslips' : 'invoices'
-        cb(null, `uploads/payments/${fileType}`)
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
-    }
-})
-
-const upload = multer({ 
-    storage: storage,
-    fileFilter: (req, file, cb) => {
-        // Accept pdf and image files
-        if (file.mimetype === 'application/pdf' || 
-            file.mimetype.startsWith('image/')) {
-            cb(null, true)
-        } else {
-            cb(null, false)
-            return cb(new Error('Only PDF and image files are allowed!'))
-        }
-    },
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
-    }
-})
+import { upload } from '../upload';
 
 
 export default function(): Router {
@@ -111,13 +81,17 @@ export default function(): Router {
 	})
 
 	// Create payment with bank slip
-	router.post('/', upload.single('bankSlipAttachment'), async (req, res) => {
+	router.post('/', upload.fields([
+		{ name: "invoiceAttachment", maxCount: 1 },
+		{ name: 'bankSlipAttachment', maxCount: 1 },
+	]), async (req, res) => {
 			try {
 					const paymentData = req.body
+					const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
-					if (req.file) {
-							paymentData.bankSlipPath = req.file.path
-					}
+					paymentData.invoicePath = files.invoiceAttachment ? files.invoiceAttachment[0].path : undefined
+					paymentData.bankSlipPath = files.bankSlipAttachment ? files.bankSlipAttachment[0].path : undefined
+					paymentData.isVerified = paymentData.verified === "true"
 
 					const payment = await createPayment(paymentData)
 					res.status(201).json({

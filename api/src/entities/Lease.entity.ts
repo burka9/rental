@@ -71,7 +71,7 @@ export class Lease {
     @Column({ nullable: true })
     lateFeeGracePeriodInDays: number;
 
-    @Column("json", { nullable: true })
+    @Column("json", { nullable: false })
     files: {
         filename: string
         path: string

@@ -28,7 +28,7 @@ app.use(morgan('combined', {
 	}
 }))
 app.use(cors({
-	origin: env.FRONTEND_URL,
+	origin: [env.FRONTEND_URL],
 	credentials: true
 }))
 

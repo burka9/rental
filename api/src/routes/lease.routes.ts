@@ -1,14 +1,24 @@
 import { Router } from 'express'
-import { getLease, createLease, updateLease, getLeasesByTenant, deleteLease, getActiveLeases } from '../controller/lease.controller'
+import { getLease, createLease, updateLease, getLeasesByTenant, deleteLease, getActiveLeases, LeaseRepository } from '../controller/lease.controller'
+import { upload } from '../upload'
+import { Lease } from '../entities/Lease.entity'
 
 export default function(): Router {
     const router = Router()
 
-    // Get all leases or a specific lease
     router.get('/:id?', async (req, res) => {
         try {
             const { id } = req.params
-            const lease = await getLease(id ? parseInt(id) : undefined)
+            const { page, limit } = req.query
+
+            const pageNum = page ? parseInt(page as string) : 1
+            const limitNum = limit ? parseInt(limit as string) : 10
+
+            const lease = await getLease(
+                id ? parseInt(id) : undefined,
+                pageNum,
+                limitNum
+            )
             res.json({
                 success: true,
                 message: "Lease fetched successfully",
@@ -19,7 +29,6 @@ export default function(): Router {
         }
     })
 
-    // Create a new lease
     router.post('/', async (req, res) => {
         try {
             const lease = await createLease(req.body)
@@ -33,7 +42,62 @@ export default function(): Router {
         }
     })
 
-    // Update a lease
+    router.post('/add-files/:id', upload.array('files'), async (req, res) => {
+        try {
+            const lease = await getLease(parseInt(req.params.id)) as Lease
+
+            console.log(req.files)
+
+            if (!lease) {
+                res.status(404).json({ error: "Lease not found" })
+                return
+            }
+
+            const files = req.files as Express.Multer.File[]
+
+            if (!files || files.length === 0) {
+                res.status(400).json({ error: "No files uploaded" })
+                return
+            }
+
+            const updatedLease = await LeaseRepository.update(lease.id, {
+                files: [...lease.files, ...files.map(file => ({
+                    filename: file.originalname,
+                    path: file.path
+                }))]
+            })
+
+            res.json({
+                success: true,
+                message: "Files uploaded successfully",
+                data: updatedLease
+            })
+        } catch (error) {
+            console.log(error)
+            res.status(400).json({ error: (error as Error).message })
+        }
+    })
+
+    router.post('/remove-file', async (req, res) => {
+        try {
+            const { leaseId, filePath } = req.body
+            
+            const lease = await getLease(leaseId) as Lease
+
+            const result = await LeaseRepository.update(lease.id, {
+                files: lease.files.filter(file => file.path !== filePath)
+            })
+            
+            res.json({
+                success: true,
+                message: "File removed successfully",
+                data: result
+            })
+        } catch (error) {
+            res.status(400).json({ error: (error as Error).message })
+        }
+    })
+
     router.put('/:id', async (req, res) => {
         try {
             const { id } = req.params
@@ -48,7 +112,6 @@ export default function(): Router {
         }
     })
 
-    // Delete a lease
     router.delete('/:id', async (req, res) => {
         try {
             const { id } = req.params

@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import * as XLSX from 'xlsx';
 import { ImportDatabase } from './db';
-import { DataSource } from 'typeorm';
+import { DataSource, In, LessThan } from 'typeorm';
 import { Building } from './entities/Building.entity';
 import { Room } from './entities/Room.entity';
 import { Tenant } from './entities/Tenant.entity';
@@ -10,6 +10,7 @@ import { PaymentSchedule } from './entities/PaymentSchedule.entity';
 import { toGregorian } from './lib/date-converter';
 import { generatePaymentSchedule } from './types';
 import { Bank } from './entities/Bank.entity';
+import { Payment } from './entities/Payment.entity';
 
 const LeaseRepository = ImportDatabase.getRepository(Lease)
 const PaymentScheduleRepository = ImportDatabase.getRepository(PaymentSchedule)
@@ -58,7 +59,7 @@ function loadData(filePath: string, sheetName?: string) {
   return sheets;
 }
 
-function import_sheets() {
+function import_tenant_sheets() {
   console.log('importing started...');
 
   for (const t of [
@@ -122,28 +123,52 @@ function import_sheets() {
   console.log('importing finished');
 }
 
+function import_payment_sheets() {
+	console.log('payment importing started...');
 
-const import_data = process.argv[2] === '--import'
-console.log('importing data from excel:', import_data)
+	for (const t of [
+		'data/payment_latest.xlsx'
+	]) {
+		const sheets = loadData(t);
+		console.log('importing', t, 'finished');
 
-if (import_data)
-	import_sheets()
-else
-	ImportDatabase.initialize()
-		.then(createBanks)
-		.then(createBlocks)
-		.then(add_data)
-		.then(() => {
-			ImportDatabase.destroy()
-		})
-		.catch(console.error)
+		Object.entries(sheets).forEach(([sheetName, datas]: any) => {
+			const parsed = datas.map((data: any, idx: number) => {
+				let payment_date = data['payment date']
 
+				// convert excel serial numbers to dates
+				if (typeof payment_date === 'number') {
+					payment_date = excelSerialToDate(payment_date)
+				}
 
-const blocks: any[] = [
-	{ name: 'Block 1', address: '', noOfFloors: 10, noOfBasements: 3 },
-	{ name: 'Block 2', address: '', noOfFloors: 10, noOfBasements: 3 },
-	{ name: 'Block 3', address: '', noOfFloors: 8 , noOfBasements: 3 },
-]
+				if (payment_date) {
+					const [day, month, year] = payment_date.split('/')
+					const new_date = toGregorian([Number(year), Number(month), Number(day)])
+					payment_date = new Date(`${new_date[0]}-${new_date[1]}-${new_date[2]}`);
+				}
+
+				return {
+					"id": idx,
+					"tenant_name": data["tenant name"] ? (String(data["tenant name"]).toLowerCase().trim() == "" ? null : String(data["tenant name"]).trim()) : null,
+					"block_number": data["block number"] ? (String(data["block number"]).toLowerCase().trim() == "" ? null : String(data["block number"]).trim()) : null,
+					"shop_number" : data["shop number"] ? (String(data["shop number"]).toLowerCase().trim() == "" ? null : String(data["shop number"]).trim()) : null,
+					"payment_date": payment_date,
+					"paid_amount": data["paid amount"] ? (String(data["paid amount"]).toLowerCase().trim() == "" ? null : String(data["paid amount"]).trim()) : null,
+					"bank_name": data["bank name"] ? (String(data["bank name"]).toLowerCase().trim() == "" ? null : String(data["bank name"]).trim()) : null,
+					"bank_account": data["bank account"] ? (String(data["bank account"]).toLowerCase().trim() == "" ? null : String(data["bank account"]).trim()) : null,
+					"reference_number": data["reference number"] ? (String(data["reference number"]).toLowerCase().trim() == "" ? null : String(data["reference number"]).trim()) : null,
+					"invoice_number": data["invoice number"] ? (String(data["invoice number"]).toLowerCase().trim() == "" ? null : String(data["invoice number"]).trim()) : null,
+				}
+			});
+
+			console.log('writing file', sheetName);
+			writeFileSync(`data/json/${sheetName}-payment.json`, JSON.stringify(parsed, null, 2));
+			console.log('writing file', sheetName, 'finished');
+		});
+	}
+
+	console.log('payment import finished')
+}
 
 
 export async function createBanks(connection: DataSource) {
@@ -165,6 +190,12 @@ export async function createBanks(connection: DataSource) {
 	return connection
 }
 export async function createBlocks(connection: DataSource) {
+	const blocks: any[] = [
+		{ name: 'Block 1', address: '', noOfFloors: 10, noOfBasements: 3 },
+		{ name: 'Block 2', address: '', noOfFloors: 10, noOfBasements: 3 },
+		{ name: 'Block 3', address: '', noOfFloors: 8 , noOfBasements: 3 },
+	]
+
 	console.log('creating blocks')
 	const buildingRepo = connection.getRepository(Building)
 
@@ -196,6 +227,79 @@ export async function createBlocks(connection: DataSource) {
 	console.log('blocks created')
 
 	return connection
+}
+
+export async function add_payment_data(connection: DataSource) {
+	console.log('adding payment data')
+
+	const data = JSON.parse(readFileSync('data/json/Sheet1-payment.json', 'utf8'))
+
+	const paymentRepo = connection.getRepository(Payment)
+	const scheduleRepo = connection.getRepository(PaymentSchedule)
+	const bankRepo = connection.getRepository(Bank)
+	const leaseRepo = connection.getRepository(Lease)
+	const roomRepo = connection.getRepository(Room)
+
+	let paymentCount = { pass: 0, fail: 0 }
+	let fails: any[] = []
+	let skipped = 0
+	
+	let bankId = -1
+	let leaseId = -1
+	
+	for await (const payment of data) {
+		// search bank
+		const bank = await bankRepo.findOne({
+			where: {
+				accountNumber: payment.bank_account
+			}
+		})
+
+		// search for rooms
+		const rooms = await roomRepo.find({
+			where: {
+				buildingId: payment.block_number == 'B2' ? 2 : Number(payment.block_number),
+				name: payment.shop_number
+			}
+		})
+
+		// search for lease
+		const lease = await leaseRepo.findOne({
+			where: {
+				roomIds: In(rooms.map(room => room.id)),
+			}
+		})
+
+		if (!lease || !bank || !rooms.length) {
+			skipped++
+			continue
+		}
+
+		// get payment schedules until May 1, 2025
+		const schdules = await scheduleRepo.find({
+			where: {
+				leaseId: lease.id,
+				// dueDate: LessThan(new Date('2025-05-01'))
+			}
+		})
+
+		console.log('====================================')
+		console.log(payment)
+		console.log(bank)
+		console.log(lease)
+		console.log(rooms)
+		console.log(schdules)
+
+		let i = 0
+		for await (const schedule of schdules) {
+			if (i == schdules.length) {
+				// console.log(schedule)
+			}
+
+			i++
+		}
+		break
+	}
 }
 
 export async function add_data(connection: DataSource) {
@@ -348,6 +452,7 @@ export async function add_data(connection: DataSource) {
 					},
 					active: true,
 					deposit: isNaN(deposit) ? 0 : deposit,
+					files: [],
 				})
 
 				if (!result) {
@@ -410,3 +515,25 @@ export async function add_data(connection: DataSource) {
 	
 	return connection
 }
+
+
+const import_tenant_data = process.argv[2] === '--import-tenant'
+console.log('importing data from excel:', import_tenant_data)
+
+const import_payment_data = process.argv[2] === '--import-payment'
+console.log('importing payment data from excel:', import_payment_data)
+
+if (import_tenant_data)
+	import_tenant_sheets()
+else if (import_payment_data)
+	import_payment_sheets()
+else
+	ImportDatabase.initialize()
+		.then(createBanks)
+		.then(createBlocks)
+		.then(add_data)
+		// .then(add_payment_data)
+		.then(() => {
+			ImportDatabase.destroy()
+		})
+		.catch(console.error)
