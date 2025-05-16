@@ -407,10 +407,11 @@ export default function ViewLease() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const files = Array.from(e.target.files).filter(file =>
-        file.type === "application/pdf" || file.type.startsWith("image/")
+        file.type === "application/pdf" || file.type.startsWith("image/") ||
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
       );
       if (files.length === 0) {
-        toast.error("Please select only PDF or image files");
+        toast.error("Please select only Word Documents, PDF or image files");
         return;
       }
       setSelectedFiles(files);
@@ -568,7 +569,7 @@ export default function ViewLease() {
               <Input
                 type="file"
                 multiple
-                accept="application/pdf,image/*"
+                accept="application/pdf,image/*,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={handleFileChange}
                 className="border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />

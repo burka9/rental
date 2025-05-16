@@ -16,9 +16,11 @@ const storage = multer.diskStorage({
 export const upload = multer({ 
 		storage: storage,
 		fileFilter: (req, file, cb) => {
-				// Accept pdf and image files
+				// Accept pdf and image files and docx
 				if (file.mimetype === 'application/pdf' || 
-						file.mimetype.startsWith('image/')) {
+						file.mimetype.startsWith('image/') ||
+						file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+					) {
 						cb(null, true)
 				} else {
 						cb(null, false)
