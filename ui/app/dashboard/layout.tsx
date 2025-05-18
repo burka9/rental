@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Geist, Geist_Mono } from "next/font/google";
 import AppSidebar from "./components/sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
+import RoleGuard from "@/components/role-guard";
 // import AppNavbar from "./components/navbar";
 // import Loading from "@/components/loading";
 
@@ -20,7 +21,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
+  return (<RoleGuard>
+
 		<SidebarProvider className={cn(
 			geistSans.variable,
 			geistMono.variable,
@@ -38,5 +40,6 @@ export default function RootLayout({
         </div>
       </main>
 		</SidebarProvider>
+  </RoleGuard>
   );
 }

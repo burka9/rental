@@ -1,5 +1,5 @@
 'use client'
-import { Room } from "@/lib/types";
+import { ROLES, Room } from "@/lib/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { usePropertyStore } from "@/lib/store/property";
 import { ColumnActions } from "@/components/columnAction";
@@ -24,7 +24,12 @@ const RoomActions = ({ room }: { room: Room }) => {
 				link: {
 					view: `/dashboard/rooms/view?id=${room.id}`,
 					edit: `/dashboard/rooms/view?id=${room.id}&edit=true`,
-				}
+				},
+        role: {
+          view: Object.values(ROLES),
+          edit: [ROLES.SUPERADMIN, ROLES.ADMIN],
+          remove: [ROLES.SUPERADMIN],
+        }
 			}}
 		/>
 };

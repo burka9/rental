@@ -2,13 +2,15 @@ import { Database } from "../db";
 import { Building } from "../entities/Building.entity";
 import { TenantRepository } from "../controller/tenant.controller";
 import { In } from "typeorm";
+import { UserFilter } from "../routes/auth.routes";
 
 export const BuildingRepository = Database.getRepository(Building)
 
-export async function getBuilding(id?: number) {
+export async function getBuilding({ buildingId }: UserFilter, id?: number) {
   if (!id) {
     // Fetch all buildings with their rooms
     const buildings = await BuildingRepository.find({
+      where: { id: buildingId },
       relations: {
         rooms: true,
       },
@@ -45,7 +47,7 @@ export async function getBuilding(id?: number) {
       },
     });
 
-    if (!building) {
+    if (!building || building.id !== id) {
       throw new Error(`Building with id ${id} not found`);
     }
 

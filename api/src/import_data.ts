@@ -63,12 +63,18 @@ function import_tenant_sheets() {
   console.log('importing started...');
 
   for (const t of [
-		'data/latest.xlsx'
+		'data/Brook Latest Block 1 and Block 3 data.xlsx',
+		// 'data/Block 2 Data.xlsx',
+		// 'data/Block 2 Shareholders data.xlsx',
+
+		'data/latest.xlsx',
 	]) {
+    console.log('importing', t);
     const sheets = loadData(t);
     console.log('importing', t, 'finished');
 
     Object.entries(sheets).forEach(([sheetName, datas]: any) => {
+			console.log('sheet name:', sheetName)
       const parsed = datas.map((data: any, idx: number) => {
         let start_date = data["start date"];
         let end_date = data["end date"];
@@ -305,13 +311,13 @@ export async function add_payment_data(connection: DataSource) {
 export async function add_data(connection: DataSource) {
 	console.log('adding data')
 	
-	const tenants1 = JSON.parse(readFileSync('data/json/Block 1 Normal tenants.json', 'utf8'))
+	// const tenants1 = JSON.parse(readFileSync('data/json/Block 1 Normal tenants.json', 'utf8'))
 	// const shareholders1 = JSON.parse(readFileSync('data/json/Block one shareholders.json', 'utf8'))
 
-	const tenants2 = JSON.parse(readFileSync('data/json/Block 2 Normal Tenants.json', 'utf8'))
+	// const tenants2 = JSON.parse(readFileSync('data/json/Block 2 Normal Tenants.json', 'utf8'))
 	// const shareholders2: any[] = JSON.parse(readFileSync('data/json/Block 2 Shareholders data.json', 'utf8'))
 	
-	const tenants3 = JSON.parse(readFileSync('data/json/Block 3 Normal Tenants.json', 'utf8'))
+	// const tenants3 = JSON.parse(readFileSync('data/json/Block 3 Normal Tenants.json', 'utf8'))
 	// const holders3 = JSON.parse(readFileSync('data/json/Block 3 Share holders.json', 'utf8'))
 
 	const roomRepo = connection.getRepository(Room)
@@ -330,18 +336,20 @@ export async function add_data(connection: DataSource) {
 	let leaseId = -1
 	
 	const datas = [
-		{ data: tenants1, share: false },
-		{ data: tenants2, share: false },
-		{ data: tenants3, share: false },
-		// { data: shareholders1, share: true },
+		{ data: 'data/json/Block 1 Normal tenants.json', share: false },
+		// { data: 'data/json/Block one shareholders.json', share: false },
+		{ data: 'data/json/Block 2 Normal Tenants.json', share: false },
+		{ data: 'data/json/Block 3 Normal Tenants.json', share: true },
 		// { data: shareholders2, share: true },
-		// { data: holders3, share: true },
+		// { data: 'data/json/Block 3 Share holders.json', share: true },
 	]
 	// const datas = [
 	// 	{ data: tenants1, share: false },
 	// ]
 	
-	for (const { data: item, share } of datas) {
+	for (const { data: _the_path, share } of datas) {
+		const item = JSON.parse(readFileSync(_the_path, 'utf8'))
+		
 		// const filteredData = item.slice(40, 50)
 		const filteredData = item
 		

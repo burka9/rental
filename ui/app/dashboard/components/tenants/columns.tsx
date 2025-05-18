@@ -1,7 +1,7 @@
 'use client'
 import { ColumnActions } from "@/components/columnAction"
 import { useTenantStore } from "@/lib/store/tenants"
-import { Tenant } from "@/lib/types"
+import { ROLES, Tenant } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
 
 
@@ -25,6 +25,11 @@ const RowActions = ({ tenant }: { tenant: Tenant }) => {
 			link: {
 				view: `/dashboard/tenants/view?id=${tenant.id}`,
 				edit: `/dashboard/tenants/view?id=${tenant.id}&edit=true`,
+			},
+			role: {
+				view: Object.values(ROLES),
+				edit: [ROLES.SUPERADMIN, ROLES.ADMIN],
+				remove: [ROLES.SUPERADMIN],
 			}
 		}}
 	/>

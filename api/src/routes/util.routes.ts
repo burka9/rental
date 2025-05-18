@@ -2,16 +2,18 @@ import { Router } from "express";
 import { getOverview } from "../controller/util.controller";
 import { sendNotification } from "../socket";
 import { createNotification } from "../controller/notification.controller";
+import { verifyUser, verifyToken } from "./auth.routes";
+import { ROLES } from "../entities/User.entity";
 
 export default function(): Router {
 	const router = Router()
 
 
-	router.get('/overview', async (req, res) => {
+	router.get('/overview', verifyToken, verifyUser, async (req, res) => {
 		res.json({
 			success: true,
 			message: "Overview fetched successfully",
-			data: await getOverview()
+			data: await getOverview(res.locals.filter)
 		})
 	})
 

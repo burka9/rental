@@ -1,6 +1,6 @@
 'use client'
 import { usePropertyStore } from "@/lib/store/property";
-import { Room } from "@/lib/types";
+import { ROLES, Room } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -195,6 +195,7 @@ export default function ViewRoom() {
         </div>
         <div className="flex items-center gap-2">
           <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
             onClick={() => {
               if (!creating && !editing) {
                 setEditing(true);
@@ -207,6 +208,7 @@ export default function ViewRoom() {
             {creating ? "Create" : editing ? "Save Changes" : "Edit"}
           </Button>
           <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
             variant={creating || editing ? "outline" : "destructive"}
             onClick={() => {
               if (creating) {

@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -14,33 +14,53 @@ import {
 } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { axios } from "@/lib/axios";
-// import { useStore } from "@/lib/store";
-// import { useRouter } from "next/navigation";
+import { useStore } from "@/lib/store";
+import { useRouter } from "next/navigation";
 
 const loginSchema = z.object({
-  phone: z.string().min(4, "Phone number must be at least 10 characters"),
+  phone: z.string().min(2, "Phone number must be at least 10 characters"),
   password: z.string().min(4, "Password must be at least 4 characters"),
 });
 
 const LoginPage = () => {
-  // const router = useRouter()
-  // const { setUser } = useStore()
-  
+  const router = useRouter()
+  const { setUser, setToken, fetchUser } = useStore()
+  const [loading, setLoading] = useState(true)
+
   const form = useForm({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      phone: "",
+      password: "",
+    }
   });
 
   const onSubmit = (data: z.infer<typeof loginSchema>) => {
+    setLoading(true)
     axios.post('/auth/login', data, { withCredentials: true })
       .then(res => {
-        console.log(res.data)
-        // setUser(res.data.user)
-        // router.push('/dashboard')
+        setToken(res.data.token)
+        setUser(res.data.user)
+        router.push('/dashboard/home')
       })
       .catch(error => {
         console.log(error)
+        setLoading(false)
       })
   };
+
+  useEffect(() => {
+    fetchUser()
+      .then(data => {
+        if (data) {
+          // redirect to dashboard
+          router.push('/dashboard/home')
+        } else {
+          setLoading(false)
+        }
+      })
+      .catch(console.error)
+  }, [])
 
   return (
     <div className="w-screen h-screen flex justify-center items-center">
@@ -59,6 +79,7 @@ const LoginPage = () => {
                 <FormLabel>Phone</FormLabel>
                 <Input
 									{...field}
+                  disabled={loading}
 									placeholder="Phone number"
 									type="text"
 								/>
@@ -75,6 +96,7 @@ const LoginPage = () => {
                 <FormLabel>Password</FormLabel>
                 <Input
 									{...field}
+                  disabled={loading}
 									placeholder="Password"
 									type="password"
 								/>
@@ -83,7 +105,7 @@ const LoginPage = () => {
             )}
           ></FormField>
 
-          <Button type="submit">Login</Button>
+          <Button type="submit" disabled={loading}>Login</Button>
         </form>
       </Form>
     </div>

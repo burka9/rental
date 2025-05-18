@@ -1,4 +1,5 @@
 "use client";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -10,9 +11,11 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { useStore } from "@/lib/store";
+import { ROLES } from "@/lib/types";
 import { BuildingIcon, HouseIcon, LucideUsers, MilestoneIcon, UserIcon, BellIcon, ChartBarIcon, DollarSign, LogOutIcon, Signature } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export const links = [
   {
@@ -21,6 +24,7 @@ export const links = [
     icon: <BuildingIcon />,
     selector: "buildings",
     showOnDashboard: true,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]
   },
   {
     href: "/dashboard/rooms",
@@ -28,6 +32,7 @@ export const links = [
     icon: <HouseIcon />,
     selector: "rooms",
     showOnDashboard: true,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]
   },
   {
     href: "/dashboard/tenants",
@@ -35,6 +40,7 @@ export const links = [
     icon: <LucideUsers />,
     selector: "tenants",
     showOnDashboard: true,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]
   },
   {
     href: "/dashboard/leases",
@@ -42,6 +48,7 @@ export const links = [
     icon: <Signature />,
     selector: "leases",
     showOnDashboard: true,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]
   },
   {
     href: "/dashboard/payments",
@@ -49,6 +56,7 @@ export const links = [
     icon: <DollarSign />,
     selector: "payments",
     showOnDashboard: false,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN, ROLES.FINANCE_ADMIN]
   },
   {
     href: "/dashboard/banks",
@@ -56,6 +64,7 @@ export const links = [
     icon: <MilestoneIcon />,
     selector: "banks",
     showOnDashboard: true,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN]
   },
   {
     href: "/dashboard/notification",
@@ -63,6 +72,7 @@ export const links = [
     icon: <BellIcon />,
     selector: "notification",
     showOnDashboard: false,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN]
   },
   {
     href: "/dashboard/report",
@@ -70,6 +80,7 @@ export const links = [
     icon: <ChartBarIcon />,
     selector: "report",
     showOnDashboard: false,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN]
   },
   {
     href: "/dashboard/users",
@@ -77,12 +88,21 @@ export const links = [
     icon: <UserIcon />,
     selector: "users",
     showOnDashboard: true,
+    roles: [ROLES.SUPERADMIN, ROLES.ADMIN]
   },
 ];
 
 export default function AppSidebar() {
+  const router = useRouter()
   const pathname = usePathname();
 
+  const { user, logout } = useStore()
+
+  const handleLogout = () => {
+    logout()
+    router.push('/auth/login')
+  }
+  
   return (
     <Sidebar className="pt-12 bg-slate-800 text-white px-0">
       <SidebarHeader className="bg-slate-800 text-white">
@@ -102,7 +122,7 @@ export default function AppSidebar() {
                   className="data-[active=true]:font-bold data-[active=true]:bg-[#ffffff] data-[active=true]:text-black"
                 >
                   <Link
-                    href="/dashboard"
+                    href="/dashboard/home"
                     className="flex gap-4 items-center my-1 p-2 h-[40px] text-white/65 hover:bg-gray-100 px-4"
                   >
                     <HouseIcon />
@@ -111,7 +131,7 @@ export default function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               {/* Other Links */}
-              {links.map((item, index) => (
+              {links.filter((link) => link.roles.includes(user?.role as ROLES)).map((item, index) => (
                 <SidebarMenuItem key={index}>
                   <SidebarMenuButton
                     asChild
@@ -141,13 +161,14 @@ export default function AppSidebar() {
               asChild
               className="data-[active=true]:font-bold data-[active=true]:bg-[#ffffff] data-[active=true]:text-black"
             >
-              <Link
-                href="/"
+              <Button
+                onClick={handleLogout}
+                variant={"ghost"}
                 className="flex gap-4 items-center justify-center my-1 p-2 h-[40px] text-white/65 hover:bg-gray-100 px-4"
               >
                 <span>Logout</span>
                 <LogOutIcon />
-              </Link>
+              </Button>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

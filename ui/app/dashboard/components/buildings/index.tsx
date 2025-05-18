@@ -8,13 +8,19 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useStore } from "@/lib/store";
+import { ROLES } from "@/lib/types";
 
 export default function Buildings() {
   const searchParams = useSearchParams();
   const { fetchBuildings, buildings } = usePropertyStore();
   const router = useRouter();
 
+  const { user } = useStore()
+
   useEffect(() => {
+    if (!user) return
+    
     fetchBuildings()
       .then(data => {
         console.log(data);
@@ -22,7 +28,7 @@ export default function Buildings() {
       .catch(error => {
         console.log(error);
       });
-  }, [fetchBuildings]);
+  }, [fetchBuildings, user]);
 
   useEffect(() => {
     if (searchParams.get("message")) {
@@ -35,6 +41,7 @@ export default function Buildings() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Buildings</h1>
         <Button
+          data-roles={[ROLES.SUPERADMIN,ROLES.ADMIN]}
           onClick={() => {
             router.push(`/dashboard/buildings/view?create=true`);
           }}

@@ -47,18 +47,18 @@ const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = 
 export default function Dashboard() {
 	const pathname = usePathname();
 	const router = useRouter()
-	const { user, fetchUser } = useStore()
+	const { user, fetchUser, logout } = useStore()
 
 	const destroy = useCallback(() => {
-		localStorage.clear()
+		logout()
 		router.push('/auth/login')
-	}, [router])
+	}, [router, logout])
 	
 	useEffect(() => {
 		fetchUser()
 			.then(data => {
-				if (data == null) {
-					// destroy()
+				if (!data) {
+					destroy()
 				}
 			})
 			.catch(destroy)

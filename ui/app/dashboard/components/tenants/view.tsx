@@ -1,5 +1,5 @@
 'use client'
-import { Tenant } from "@/lib/types";
+import { ROLES, Tenant } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Label } from "@/components/ui/label";
@@ -339,6 +339,7 @@ export default function ViewTenant() {
         </div>
         <div className="flex items-center gap-2">
           <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
             onClick={() => {
               if (!creating && !editing) {
                 setEditing(true);
@@ -351,6 +352,7 @@ export default function ViewTenant() {
             {creating ? "Create" : editing ? "Save Changes" : "Edit"}
           </Button>
           <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
             variant={creating || editing ? "outline" : "destructive"}
             onClick={() => {
               if (creating) {

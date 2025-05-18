@@ -1,5 +1,5 @@
 'use client'
-import { Payment } from "@/lib/types"
+import { Payment, ROLES } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
 // import { PencilIcon, TrashIcon } from "lucide-react"
@@ -51,6 +51,7 @@ export const columns: ColumnDef<Payment>[] = [
 						!row.original.isVerified &&
 						<Link href={`/dashboard/payments/verify?id=${row.original.id}`}>
 							<Button
+								data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.FINANCE_ADMIN]}
 								variant="outline"
 								size="sm"
 								className="h-8 w-full text-white bg-green-700 hover:bg-green-800 hover:text-white"

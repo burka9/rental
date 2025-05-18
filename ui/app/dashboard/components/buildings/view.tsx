@@ -1,6 +1,6 @@
 'use client'
 import { usePropertyStore } from "@/lib/store/property";
-import { Building } from "@/lib/types";
+import { Building, ROLES } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import { DataTable } from "./rooms/data-table";
 import { columns } from "./rooms/columns";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { useStore } from "@/lib/store";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -36,6 +37,8 @@ export default function ViewBuilding() {
   const searchParams = useSearchParams();
   const { fetchBuilding, createBuilding, updateBuilding, deleteBuilding } = usePropertyStore();
 
+  const { user } = useStore()
+
   const form = useForm<z.infer<typeof formSchema>>({
     mode: "onChange",
     resolver: zodResolver(formSchema),
@@ -48,6 +51,8 @@ export default function ViewBuilding() {
   });
 
   useEffect(() => {
+    if (!user) return
+    
     const id = Number(searchParams.get("id"));
     if (!id) {
       if (searchParams.get("create") === "true") {
@@ -68,7 +73,7 @@ export default function ViewBuilding() {
         console.log(error);
         toast.error("Failed to fetch building");
       });
-  }, [fetchBuilding, searchParams, router]);
+  }, [fetchBuilding, searchParams, router, user]);
 
   useEffect(() => {
     if (!building) return;
@@ -151,7 +156,7 @@ export default function ViewBuilding() {
             {creating ? "Create Building" : editing ? "Edit Building" : "View Building"}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}>
           <Button
             onClick={() => {
               if (!creating && !editing) {
@@ -317,7 +322,7 @@ export default function ViewBuilding() {
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-900">Rooms</h2>
               <Link href={`/dashboard/rooms/view?create=true&buildingId=${building.id}`}>
-                <Button className="bg-blue-600 hover:bg-blue-700">Add Room</Button>
+                <Button data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]} className="bg-blue-600 hover:bg-blue-700">Add Room</Button>
               </Link>
             </div>
             <Card className="border-none shadow-md rounded-lg">

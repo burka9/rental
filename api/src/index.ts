@@ -67,11 +67,48 @@ Database.initialize()
 
 		// init default admin
 		const userRepository = Database.getRepository(User)
-		return userRepository.save({
-			phone: 'admin',
-			password: hashSync('admin', 10),
-			role: ROLES.SUPERADMIN
-		})
+		return userRepository.create([
+			{
+				phone: 'admin',
+				password: hashSync('admin', 10),
+				role: ROLES.SUPERADMIN
+			},
+			{
+				phone: 'b1',
+				password: hashSync('admin', 10),
+				role: ROLES.BUILDING_ADMIN,
+				buildingId: 1,
+			},
+			{
+				phone: 'b2',
+				password: hashSync('admin', 10),
+				role: ROLES.BUILDING_ADMIN,
+				buildingId: 2,
+			},
+			{
+				phone: 'b3',
+				password: hashSync('admin', 10),
+				role: ROLES.BUILDING_ADMIN,
+				buildingId: 3,
+			},
+			{
+				phone: 'finance',
+				password: hashSync('admin', 10),
+				role: ROLES.FINANCE_ADMIN
+			},
+			{
+				phone: 'board',
+				password: hashSync('admin', 10),
+				role: ROLES.BOARD_MEMBER
+			},
+		])
+	})
+	.then(async users => {
+		const userRepository = Database.getRepository(User)
+		
+		for await (const user of users) try {
+			await userRepository.save(user)
+		} catch {}
 	})
 	.then(() => console.log('done'))
 	.catch((err: Error) => {

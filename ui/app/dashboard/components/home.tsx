@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { axios } from "@/lib/axios";
 import { ArrowRight } from "lucide-react";
 import { links } from "./sidebar";
+import { useStore } from "@/lib/store";
+import { ROLES } from "@/lib/types";
 
 interface Overview {
   vacantRooms: number;
@@ -21,13 +23,22 @@ interface Overview {
 export default function Dashboard() {
   const [overview, setOverview] = useState<Overview>();
 
+  const { user } = useStore()
+
   useEffect(() => {
-    axios.get('/util/overview')
+    if (!user?.token) return
+    console.log('user - home')
+    console.log(user)
+    axios.get('/util/overview', {
+      headers: {
+        Authorization: `Bearer ${user?.token}`
+      }
+    })
       .then(res => {
         setOverview(res.data.data);
       })
       .catch(console.error);
-  }, []);
+  }, [user]);
 
   return (
     <div className="container mx-auto py-8">
@@ -81,7 +92,7 @@ export default function Dashboard() {
       {/* Quick Actions */}
       <h2 className="text-xl font-semibold mb-6 text-gray-900">Quick Actions</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        {links.map((link) => link.showOnDashboard && (
+        {links.filter(link => link.roles.includes(user?.role as ROLES)).map((link) => link.showOnDashboard && (
           <Link key={link.href} href={link.href}>
             <Card className="hover:bg-gray-50 transition-colors border-none shadow-sm">
               <CardContent className="flex items-center justify-between p-4">

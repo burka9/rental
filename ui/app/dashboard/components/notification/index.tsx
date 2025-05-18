@@ -90,7 +90,7 @@ export default function Notification() {
     <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Link href="/dashboard">
+          <Link href="/dashboard/home">
             <Button variant="ghost" size="sm" className="p-2">
               <ChevronLeftIcon className="h-4 w-4" />
             </Button>

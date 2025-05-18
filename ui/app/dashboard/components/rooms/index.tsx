@@ -8,6 +8,7 @@ import { DataTable } from "./rooms/data-table";
 import { columns } from "./rooms/columns";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { ROLES } from "@/lib/types";
 
 export default function Rooms() {
   const searchParams = useSearchParams();
@@ -40,7 +41,7 @@ export default function Rooms() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Rooms</h1>
         <Link href={`/dashboard/rooms/view?create=true`}>
-          <Button className="bg-slate-800 hover:bg-slate-900">Add New Room</Button>
+          <Button data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]} className="bg-slate-800 hover:bg-slate-900">Add New Room</Button>
         </Link>
       </div>
       <Card className="border-none shadow-md rounded-lg">

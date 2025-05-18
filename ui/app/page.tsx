@@ -1,21 +1,22 @@
 'use client'
-// import { useStore } from "@/lib/store";
-// import { useRouter } from "next/navigation";
-// import { useEffect } from "react";
+import { useStore } from "@/lib/store";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Home() {
-  // const router = useRouter();
+  const router = useRouter();
   
-  // const { user, fetchUser } = useStore()
+  const { fetchUser } = useStore()
   
-  // useEffect(() => {
-  //   fetchUser()
-  //     .then(res => console.log(res))
-  //     .catch(err => console.error(err))
-  // }, [])
+  useEffect(() => {
+    console.log('asdf')
+    fetchUser()
+      .then(res => {
+        if (res) router.push('/dashboard/home')
+        else router.push('/auth/login')
+      })
+      .catch(() => router.push('/auth/login'))
+  }, [])
   
-  return (
-    <>
-    </>
-  );
+  return <></>
 }

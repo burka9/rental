@@ -2,13 +2,13 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from "typeorm";
 import { Building } from "./Building.entity";
 
 export enum ROLES {
-    SUPERADMIN = "SUPERADMIN",
-    ADMIN = "ADMIN",
-    BUILDING_ADMIN = "BUILDING_ADMIN",
-    TENANT = "TENANT",
-    BOARD_MEMBER = "BOARD_MEMBER",
-    FINANCE_ADMIN = "FINANCE_ADMIN",
-    EMPTY = "EMPTY",
+  SUPERADMIN = "SUPERADMIN",
+  ADMIN = "ADMIN",
+  BUILDING_ADMIN = "BUILDING_ADMIN",
+  TENANT = "TENANT",
+  BOARD_MEMBER = "BOARD_MEMBER",
+  FINANCE_ADMIN = "FINANCE_ADMIN",
+  EMPTY = "EMPTY",
 }
 
 @Entity('users')
@@ -46,4 +46,7 @@ export class Session {
 
   @Column()
   expiresAt: Date;
+
+  @Column()
+  token: string;
 }

@@ -2,8 +2,25 @@
 
 export type DashboardProps = any
 
+export type User = any
 
-export type CurrentUser = any
+export enum ROLES {
+	SUPERADMIN = "SUPERADMIN",
+	ADMIN = "ADMIN",
+	BUILDING_ADMIN = "BUILDING_ADMIN",
+	TENANT = "TENANT",
+	BOARD_MEMBER = "BOARD_MEMBER",
+	FINANCE_ADMIN = "FINANCE_ADMIN",
+	EMPTY = "EMPTY",
+}
+
+export type CurrentUser = {
+	buildingId: string | number | null
+	id: number | string
+	phone: string
+	role: string
+	token: string
+}
 
 
 export type Building = {
