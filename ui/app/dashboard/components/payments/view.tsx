@@ -66,7 +66,6 @@ const formSchema = z.object({
   referenceNumber: z.string().min(0, "Reference number is required"),
   notes: z.string().optional(),
   bankSlipAttachment: z.any().optional(),
-  invoiceAttachment: z.any().optional(),
 });
 
 // Component to handle file display and download for Bank Slip
@@ -177,7 +176,6 @@ export default function ViewPayments() {
   const [lease, setLease] = useState<Lease | null>(null);
   const [creating, setCreating] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(null);
-  const [admin] = useState(true); // Default to true
 
   // Get current Ethiopian date for default values
   const currentGregDate = new Date();
@@ -203,7 +201,6 @@ export default function ViewPayments() {
       referenceNumber: "",
       notes: "",
       bankSlipAttachment: undefined,
-      invoiceAttachment: undefined,
     },
   });
 
@@ -352,7 +349,6 @@ export default function ViewPayments() {
       bankId: values.bankId,
       referenceNumber: values.referenceNumber,
       notes: values.notes || "",
-      verified: admin && values.invoiceAttachment instanceof File, // Set verified to true if admin and invoice is attached
     };
 
     // Append payment fields to FormData
@@ -367,9 +363,6 @@ export default function ViewPayments() {
     // Append files to FormData
     if (values.bankSlipAttachment) {
       formData.append("bankSlipAttachment", values.bankSlipAttachment);
-    }
-    if (admin && values.invoiceAttachment) {
-      formData.append("invoiceAttachment", values.invoiceAttachment);
     }
 
     try {
@@ -734,26 +727,6 @@ export default function ViewPayments() {
                         </FormItem>
                       )}
                     />
-                    {admin && (
-                      <FormField
-                        control={form.control}
-                        name="invoiceAttachment"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Invoice Attachment</FormLabel>
-                            <FormControl>
-                              <Input
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png"
-                                onChange={(e) => field.onChange(e.target.files ? e.target.files[0] : null)}
-                                className="bg-white"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
                   </>
                 ) : (
                   <>

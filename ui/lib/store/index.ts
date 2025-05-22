@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { axios } from '../axios'
-import { CurrentUser } from '../types'
+import { CurrentUser, User } from '../types'
 
 
 type StoreState = {
@@ -15,6 +15,7 @@ type StoreAction = {
 	setToken: (token: string) => void
 	setLoadingPage: (loadingPage: boolean) => void
 	logout: () => void
+	getUsers: () => Promise<User[]>
 }
 
 type Store = StoreState & StoreAction
@@ -63,5 +64,22 @@ export const useStore = create<Store>(set => ({
 	logout: () => {
 		localStorage.clear()
 		set({ user: undefined, token: undefined })
+	},
+	getUsers: async () => {
+		try {
+			const res = await axios.get('/user', {
+				headers: {
+					Authorization: `Bearer ${localStorage.getItem('token')}`
+				}
+			})
+
+			if (!res.data.success) {
+				return []
+			}
+
+			return res.data.users
+		} catch {
+			return []
+		}
 	}
 }))

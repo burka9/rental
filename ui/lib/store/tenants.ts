@@ -38,6 +38,7 @@ type StoreAction = {
   deletePayment: (id: number) => Promise<boolean>
   addFilesToLease: (id: number, data: FormData) => Promise<Lease | null>
   removeFile: (leaseId: number, filePath: string) => Promise<boolean>
+  terminateLease: (id: number) => Promise<boolean>
 }
 
 type Store = StoreState & StoreAction
@@ -433,6 +434,25 @@ export const useTenantStore = create<Store>((set) => ({
         leaseId,
         filePath
       }, {
+        headers: {
+          Authorization: `Bearer ${user?.token}`
+        },
+      })
+
+      set(state => ({
+        leases: state.leases.map(l => l.id === res.data.data.id ? res.data.data : l),
+      }))
+      return res.data.success
+    } catch (err) {
+      console.log(err)
+      return false
+    }
+  },
+  async terminateLease(id) {
+    const { user } = useStore.getState()
+
+    try {
+      const res = await axios.post(`/lease/terminate/${id}`, {
         headers: {
           Authorization: `Bearer ${user?.token}`
         },

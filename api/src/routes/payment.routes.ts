@@ -82,16 +82,13 @@ export default function(): Router {
 
 	// Create payment with bank slip
 	router.post('/', upload.fields([
-		{ name: "invoiceAttachment", maxCount: 1 },
 		{ name: 'bankSlipAttachment', maxCount: 1 },
 	]), async (req, res) => {
 			try {
 					const paymentData = req.body
 					const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
-					paymentData.invoicePath = files.invoiceAttachment ? files.invoiceAttachment[0].path : undefined
 					paymentData.bankSlipPath = files.bankSlipAttachment ? files.bankSlipAttachment[0].path : undefined
-					paymentData.isVerified = paymentData.verified === "true"
 
 					const payment = await createPayment(paymentData)
 					res.status(201).json({

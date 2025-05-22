@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client'
 
-import { Lease, Room } from "@/lib/types";
+import { Lease, ROLES, Room } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ export default function ViewLease() {
   const [leaseFiles, setLeaseFiles] = useState<{ id: number; name: string; url: string }[]>([]); // State for lease files
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { fetchLease, createLease, updateLease, deleteLease, tenants, fetchTenants, addFilesToLease, removeFile } = useTenantStore();
+  const { fetchLease, createLease, updateLease, terminateLease, tenants, fetchTenants, addFilesToLease, removeFile } = useTenantStore();
   const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -332,15 +332,15 @@ export default function ViewLease() {
     }
   };
 
-  const handleDelete = () => {
+  const handleTerminate = () => {
     if (!lease) return;
 
-    deleteLease(lease.id)
+    terminateLease(lease.id)
       .then(success => {
         if (success) {
-          router.push("/dashboard/leases?message=Lease deleted successfully");
+          router.push("/dashboard/leases?message=Lease terminated successfully");
         } else {
-          toast.error("Failed to delete lease");
+          toast.error("Failed to terminate lease");
         }
       })
       .catch(error => {
@@ -457,6 +457,7 @@ export default function ViewLease() {
         </div>
         <div className="flex items-center gap-2">
           <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
             onClick={() => {
               if (!creating && !editing) {
                 setEditing(true);
@@ -469,6 +470,7 @@ export default function ViewLease() {
             {creating ? "Create" : editing ? "Save Changes" : "Edit"}
           </Button>
           <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
             variant={creating || editing ? "outline" : "destructive"}
             onClick={() => {
               if (creating) {
@@ -520,7 +522,7 @@ export default function ViewLease() {
               }
             }}
           >
-            {creating ? "Cancel" : editing ? "Cancel" : "Delete"}
+            {creating ? "Cancel" : editing ? "Cancel" : "Terminate"}
           </Button>
           {!creating && !editing && lease && (
             <>
@@ -543,16 +545,16 @@ export default function ViewLease() {
       <div className="flex flex-col gap-8">
         <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
           <DialogContent>
-            <DialogTitle>Delete Lease</DialogTitle>
+            <DialogTitle>Terminate Lease</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this lease? This action cannot be undone.
+              Are you sure you want to terminate this lease?
             </DialogDescription>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
                 Cancel
               </Button>
-              <Button variant="destructive" onClick={handleDelete}>
-                Delete
+              <Button variant="destructive" onClick={handleTerminate}>
+                Terminate
               </Button>
             </DialogFooter>
           </DialogContent>

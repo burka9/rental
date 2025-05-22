@@ -2,7 +2,15 @@
 
 export type DashboardProps = any
 
-export type User = any
+export type User = {
+  id: number;
+  phone: string;
+  role: ROLES;
+  buildingId: number | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export enum ROLES {
 	SUPERADMIN = "SUPERADMIN",

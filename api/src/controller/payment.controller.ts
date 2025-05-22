@@ -105,9 +105,6 @@ export async function createPayment(payment: Partial<Payment>) {
     if (!payment.leaseId || !payment.bankId || !payment.paidAmount) {
         throw new Error("Missing required fields")
     }
-
-    // TODO: remove later
-    await markPaidUntilNow(payment.leaseId)
     
     const newPayment = PaymentRepository.create({
         ...payment,
@@ -132,6 +129,9 @@ export async function verifyPayment(id: number, verificationData: Partial<Paymen
     if (payment.isVerified) {
         throw new Error("Payment already verified");
     }
+
+    // TODO: remove later
+    await markPaidUntilNow(payment.leaseId)
 
     // Update payment with verification data
     await PaymentRepository.update(id, {
@@ -206,12 +206,14 @@ export async function changeStatus(scheduleId: number, paid: boolean) {
 export async function markPaidUntilNow(leaseId: number) {
     // for all schedules with leaseId, set paidAmount to payableAmount for all schedules that were not already paid until today
     const schedules = await PaymentScheduleRepository.find({
-        where: { leaseId },
+        where: { leaseId, dueDate: LessThan(new Date()) },
         relations: ['lease']
     })
+    
+    console.log(schedules)
 
-    for (const schedule of schedules) {
-        if (schedule.paidAmount < schedule.payableAmount && schedule.dueDate < new Date()) {
+    for (const schedule of schedules.splice(0, schedules.length-1)) {
+        if (schedule.paidAmount < schedule.payableAmount) {
             await PaymentScheduleRepository.update(schedule.id, { paidAmount: schedule.payableAmount })
         }
     }

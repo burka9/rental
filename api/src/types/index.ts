@@ -4,13 +4,8 @@ import { randomInt } from "crypto"
 import { addMonths, addYears } from "date-fns"
 import { writeFileSync } from "fs"
 import { resolve } from "path"
+import { ROLES } from "../entities/User.entity"
 
-export enum ROLES {
-	SUPERADMIN = 'SUPERADMIN',
-	ADMIN = 'ADMIN',
-	BLDG_ADMIN = 'BLDG_ADMIN',
-	FINANCE_ADMIN = 'FINANCE_ADMIN'
-}
 
 export type User = {
 	id: number

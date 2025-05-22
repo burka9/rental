@@ -11,6 +11,9 @@ import { toGregorian } from './lib/date-converter';
 import { generatePaymentSchedule } from './types';
 import { Bank } from './entities/Bank.entity';
 import { Payment } from './entities/Payment.entity';
+import { User } from './entities/User.entity';
+import { hashSync } from 'bcrypt';
+import { ROLES } from './entities/User.entity';
 
 const LeaseRepository = ImportDatabase.getRepository(Lease)
 const PaymentScheduleRepository = ImportDatabase.getRepository(PaymentSchedule)
@@ -531,7 +534,64 @@ console.log('importing data from excel:', import_tenant_data)
 const import_payment_data = process.argv[2] === '--import-payment'
 console.log('importing payment data from excel:', import_payment_data)
 
-if (import_tenant_data)
+const drop_data = process.argv[2] === '--drop-data'
+console.log('dropping data:', drop_data)
+
+if (drop_data)
+	ImportDatabase.initialize()
+		.then(createBanks)
+		.then(createBlocks)
+		.then(() => {
+			// create admin user
+			const userRepository = ImportDatabase.getRepository(User)
+					return userRepository.create([
+						{
+							phone: 'admin',
+							password: hashSync('admin', 10),
+							role: ROLES.SUPERADMIN
+						},
+						{
+							phone: 'b1',
+							password: hashSync('admin', 10),
+							role: ROLES.BUILDING_ADMIN,
+							buildingId: 1,
+						},
+						{
+							phone: 'b2',
+							password: hashSync('admin', 10),
+							role: ROLES.BUILDING_ADMIN,
+							buildingId: 2,
+						},
+						{
+							phone: 'b3',
+							password: hashSync('admin', 10),
+							role: ROLES.BUILDING_ADMIN,
+							buildingId: 3,
+						},
+						{
+							phone: 'finance',
+							password: hashSync('admin', 10),
+							role: ROLES.FINANCE_ADMIN
+						},
+						{
+							phone: 'board',
+							password: hashSync('admin', 10),
+							role: ROLES.BOARD_MEMBER
+						},
+					])
+		})
+		.then(async users => {
+				const userRepository = ImportDatabase.getRepository(User)
+				
+				for await (const user of users) try {
+					await userRepository.save(user)
+				} catch {}
+			})
+		.then(() => {
+			ImportDatabase.destroy()
+		})
+		.catch(console.error)
+else if (import_tenant_data)
 	import_tenant_sheets()
 else if (import_payment_data)
 	import_payment_sheets()

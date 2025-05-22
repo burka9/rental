@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { getLease, createLease, updateLease, getLeasesByTenant, deleteLease, getActiveLeases, LeaseRepository } from '../controller/lease.controller'
 import { upload } from '../upload'
 import { Lease } from '../entities/Lease.entity'
+import { updateRoom } from '../controller/room.controller'
 
 export default function(): Router {
     const router = Router()
@@ -35,6 +36,30 @@ export default function(): Router {
             res.status(201).json({
                 success: true,
                 message: "Lease created successfully",
+                data: lease
+            })
+        } catch (error) {
+            res.status(400).json({ error: (error as Error).message })
+        }
+    })
+
+    router.post('/terminate/:id', async (req, res) => {
+        try {
+            const lease = await updateLease(parseInt(req.params.id), { active: false })
+
+            if (!lease) {
+                res.status(404).json({ error: "Lease not found" })
+                return
+            }
+            
+            // make room available
+            lease.roomIds.forEach(roomId => {
+                updateRoom(roomId, { occupied: false })
+            })
+            
+            res.json({
+                success: true,
+                message: "Lease terminated successfully",
                 data: lease
             })
         } catch (error) {

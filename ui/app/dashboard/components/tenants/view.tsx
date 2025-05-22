@@ -233,6 +233,8 @@ export default function ViewTenant() {
 
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
     if (creating) {
+      console.log(values)
+      
       const formData = new FormData();
       formData.append("name", values.name);
       if (values.phone) formData.append("phone", values.phone);
@@ -409,6 +411,17 @@ export default function ViewTenant() {
           >
             {creating ? "Cancel" : editing ? "Cancel" : "Delete"}
           </Button>
+          {creating && <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]}
+            onClick={() => {
+              if (creating) {
+                form.handleSubmit(handleSubmit)();
+              } else {
+              }
+            }}
+          >
+            Create
+          </Button>}
         </div>
       </div>
 
@@ -1005,13 +1018,13 @@ export default function ViewTenant() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <FormField
+                        {/* <FormField
                           control={form.control}
                           name="lateFeeType"
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel className="text-gray-700">Late Fee Type</FormLabel>
-                              <Select onValueChange={field.onChange} value={"FIXED"}>
+                              <Select onValueChange={field.onChange} value={field.value || undefined}>
                                 <FormControl>
                                   <SelectTrigger
                                     className="border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -1027,33 +1040,27 @@ export default function ViewTenant() {
                               <FormMessage className="text-red-500 text-sm" />
                             </FormItem>
                           )}
-                        />
+                        /> */}
                         <FormField
                           control={form.control}
                           name="lateFee"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-gray-700">Late Fee</FormLabel>
+                              <FormLabel className="text-gray-700">Late Fee Percentage</FormLabel>
                               <FormControl>
                                 <Input
                                   {...field}
                                   type="number"
                                   min={0}
-                                  disabled={!form.getValues().lateFeeType}
-                                  placeholder="Enter late fee"
-                                  className={cn(
-                                    "border-gray-200 rounded-md shadow-sm transition-all",
-                                    !form.getValues().lateFeeType
-                                      ? "bg-gray-100 opacity-70 cursor-not-allowed"
-                                      : "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                  )}
+                                  placeholder="Enter late fee percentage"
+                                  className="border-gray-200 rounded-md shadow-sm transition-all"
                                 />
                               </FormControl>
                               <FormMessage className="text-red-500 text-sm" />
                             </FormItem>
                           )}
                         />
-                        <FormField
+                        {/* <FormField
                           control={form.control}
                           name="initialPaymentAmount"
                           render={({ field }) => (
@@ -1094,7 +1101,7 @@ export default function ViewTenant() {
                               <FormMessage className="text-red-500 text-sm" />
                             </FormItem>
                           )}
-                        />
+                        /> */}
                         <FormField
                           control={form.control}
                           name="agreementFile"
@@ -1135,7 +1142,7 @@ export default function ViewTenant() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <DataTable columns={columns} data={leases} />
+              <DataTable columns={columns} data={leases.filter((lease) => lease.active)} />
             </CardContent>
           </Card>
         )}

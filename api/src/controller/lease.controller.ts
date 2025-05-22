@@ -10,7 +10,7 @@ export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
 export async function getLease(id?: number, page: number = 1, limit: number = 10) {
     if (id) {
         return await LeaseRepository.findOne({
-            where: { id },
+            where: { id, active: true },
             relations: {
                 paymentSchedule: true,
                 payments: true,

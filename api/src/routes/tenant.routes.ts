@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "path";
 import { createTenant, deleteTenant, getSingleTenant, getTenant, updateTenant } from "../controller/tenant.controller";
 import { createLease, updateLease } from "../controller/lease.controller";
-import { PaymentType } from "../entities/Lease.entity";
+import { LateFeeType, PaymentType } from "../entities/Lease.entity";
 import { getRoom, getRooms, RoomRepository, updateRoom } from "../controller/room.controller";
 import { toGregorian } from "../lib/date-converter";
 import { In } from "typeorm";
@@ -89,14 +89,14 @@ export default function (): Router {
   router.post("/", upload.single("agreementFile"), async (req: any, res: any) => {
     const body = req.body;
     const file = req.file;
-
-    const existingTenant = await getSingleTenant({ phone: body.phone });
-    if (existingTenant) {
-      return res.status(400).json({
-        success: false,
-        message: "Tenant already exists",
-      });
-    }
+    
+    // const existingTenant = await getSingleTenant({ phone: body.phone });
+    // if (existingTenant) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Tenant already exists",
+    //   });
+    // }
 
     const roomIds: { buildingId: string; roomId: string }[] = JSON.parse(body.rooms);
     const selectedRooms = await RoomRepository.find({
@@ -126,26 +126,33 @@ export default function (): Router {
     const endDate = JSON.parse(body.endDate)[0];
     const startDateEthiopian = toGregorian([Number(startDate.year), Number(startDate.month), Number(startDate.day)]);
     const endDateEthiopian = toGregorian([Number(endDate.year), Number(endDate.month), Number(endDate.day)]);
-
-    const lease = await createLease({
+    
+    console.log(req.body)
+    
+    const leaseBody = {
       tenant,
       roomIds: roomIds.map((room) => Number(room.roomId)),
       startDate: new Date(startDateEthiopian[0], startDateEthiopian[1] - 1, startDateEthiopian[2]),
       endDate: new Date(endDateEthiopian[0], endDateEthiopian[1] - 1, endDateEthiopian[2]),
       paymentIntervalInMonths: Number(body.paymentIntervalInMonths),
       paymentAmountPerMonth: JSON.parse(body.paymentAmountPerMonth),
-      deposit: Number(body.deposit),
-      lateFeeType: body.lateFeeType,
-      lateFee: Number(body.lateFee),
-      initialPayment: {
-        amount: Number(body.initialPaymentAmount),
-        paymentDate: body.initialPaymentDate,
-      },
+      deposit: isNaN(Number(body.deposit)) ? 0 : Number(body.deposit),
+      lateFeeType: LateFeeType.PERCENTAGE,
+      // lateFeeType: body.lateFeeType,
+      lateFee: isNaN(Number(body.lateFee)) ? 0 : Number(body.lateFee),
+      // initialPayment: {
+        // amount: Number(body.initialPaymentAmount),
+        // paymentDate: body.initialPaymentDate,
+      // },
       lateFeeGracePeriodInDays: 0,
       active: true,
       paymentType: PaymentType.PREPAID,
-      files: [{ filename: file?.filename || "", path: file?.path || "" }],
-    });
+      files: file ? [{ filename: file.filename || "", path: file.path || "" }] : [],
+    }
+
+    console.log(leaseBody)
+    
+    const lease = await createLease(leaseBody);
 
     if (!lease) {
       return res.status(400).json({

@@ -22,6 +22,7 @@ import Payments from "../components/payments";
 import ViewPayments from "../components/payments/view";
 import VerifyPayment from "../components/payments/verify";
 import Leases from "../components/leases";
+import Users from "../components/users";
 
 // Define the map outside the component to avoid re-creating it on each render.
 const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = {
@@ -42,6 +43,7 @@ const componentMap: { [key: string]: (props: DashboardProps) => JSX.Element } = 
 	'leases/payment/add': AddPayment,
 	'notification': Notification,
 	'report': Report,
+	'users': Users,
 };
 
 export default function Dashboard() {
