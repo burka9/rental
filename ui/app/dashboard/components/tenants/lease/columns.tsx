@@ -2,6 +2,7 @@
 import { Lease, ROLES } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
 import { ColumnActions } from "@/components/columnAction"
+import { toEthiopianDateString } from "@/lib/utils";
 // import { usePropertyStore } from "@/lib/store/property"
 
 const LeaseActions = ({ lease }: { lease: Lease }) => {
@@ -45,7 +46,7 @@ export const columns: ColumnDef<Lease>[] = [
 		cell: ({ row }) => {
 			return (
 				<div>
-					{row.getValue("startDate") ? new Date(row.getValue("startDate")).toDateString() : ""}
+					{row.getValue("startDate") ? toEthiopianDateString(new Date(row.getValue("startDate"))) : ""}
 				</div>
 			)
 		}
@@ -56,7 +57,7 @@ export const columns: ColumnDef<Lease>[] = [
 		cell: ({ row }) => {
 			return (
 				<div>
-					{row.getValue("endDate") ? new Date(row.getValue("endDate")).toDateString() : ""}
+					{row.getValue("endDate") ? toEthiopianDateString(new Date(row.getValue("endDate"))) : ""}
 				</div>
 			)
 		}

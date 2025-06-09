@@ -88,8 +88,12 @@ export default function(): Router {
 					const paymentData = req.body
 					const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
+					console.log(files)
+
 					paymentData.bankSlipPath = files.bankSlipAttachment ? files.bankSlipAttachment[0].path : undefined
 
+					console.log(paymentData)
+					
 					const payment = await createPayment(paymentData)
 					res.status(201).json({
 							success: true,

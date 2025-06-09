@@ -41,6 +41,10 @@ npm install
 npm run build
 
 
+
+# TODO: implement db backup
+
+
 # deploy
 systemctl restart nextjs-rental.service
 systemctl restart api-rental.service

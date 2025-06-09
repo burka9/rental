@@ -110,7 +110,7 @@ export async function createPayment(payment: Partial<Payment>) {
         ...payment,
         paymentDate: new Date(),
         isVerified: payment.isVerified || false,
-        bankSlipPath: payment.invoicePath,
+        bankSlipPath: payment.bankSlipPath,
     })
     
     return await PaymentRepository.save(newPayment)
@@ -131,7 +131,7 @@ export async function verifyPayment(id: number, verificationData: Partial<Paymen
     }
 
     // TODO: remove later
-    await markPaidUntilNow(payment.leaseId)
+    // await markPaidUntilNow(payment.leaseId)
 
     // Update payment with verification data
     await PaymentRepository.update(id, {

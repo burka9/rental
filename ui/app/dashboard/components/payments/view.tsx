@@ -10,28 +10,15 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronLeftIcon, ChevronsUpDown, DownloadIcon, EyeIcon } from "lucide-react";
+import { ChevronLeftIcon, DownloadIcon, EyeIcon } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useTenantStore } from "@/lib/store/tenants";
 import { usePropertyStore } from "@/lib/store/property";
-import { Lease, Payment, Bank, Room } from "@/lib/types";
+import { Lease, Payment, Bank, ROLES } from "@/lib/types";
 import { toEthiopian, toGregorian } from "@/lib/date-converter";
 import { axios, baseURL } from "@/lib/axios";
-import { cn } from "@/lib/utils";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
 
 // Ethiopian month names
 const monthNames = [
@@ -171,8 +158,8 @@ const InvoiceDisplay = ({ filePath }: { filePath: string }) => {
 export default function ViewPayments() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { fetchLease, fetchLeases, leases, fetchPayment } = useTenantStore();
-  const { fetchBanks, banks, fetchRooms, rooms } = usePropertyStore();
+  const { fetchLease, fetchLeases, fetchPayment } = useTenantStore();
+  const { fetchBanks, banks, fetchRooms } = usePropertyStore();
   const [lease, setLease] = useState<Lease | null>(null);
   const [creating, setCreating] = useState(false);
   const [payment, setPayment] = useState<Payment | null>(null);
@@ -246,12 +233,12 @@ export default function ViewPayments() {
       fetchLease(queryLeaseId)
         .then(data => {
           if (data) {
+            console.log(data)
             setLease(data);
-            console.log(data.tenant)
             form.setValue("leaseId", queryLeaseId);
             setselectedLease(data as any)
           } else {
-            toast.error("Lease not found");
+            // toast.error("Lease not found");
             setLease(null);
           }
         })
@@ -274,6 +261,8 @@ export default function ViewPayments() {
         if (data == null) router.push(`/dashboard/payments`);
         else {
           setPayment(data);
+          console.log('data ------------------------------------')
+          console.log(data)
           // Populate form with payment data in view mode
           const paymentDate = data.paymentDate ? toEthiopian(
             new Date(data.paymentDate).getFullYear(),
@@ -420,29 +409,39 @@ export default function ViewPayments() {
               >
                 {creating ? "Cancel" : "Back"}
               </Button>
+              <Link
+                href={`/dashboard/payments/verify?id=${payment?.id}`}
+                data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.FINANCE_ADMIN]}
+              >
+                <Button variant={"outline"} className="bg-green-600 text-white">Verify</Button>
+              </Link>
             </div>
           </div>
 
-          {/* Display Selected Lease Information */}
-          {selectedLease && (
-            <Link href={`/dashboard/leases/view?id=${(selectedLease as any)?.id}`}>
-              <div className="bg-gray-50 p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md">
-                <h2 className="text-lg font-semibold text-gray-900">Selected Lease</h2>
-                <p className="text-sm text-gray-700">Lease ID: {(selectedLease as any)?.id}</p>
-                <p className="text-sm text-gray-700">Tenant: {(selectedLease as any)?.tenant.name}</p>
-              </div>
-            </Link>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Display Selected Lease Information */}
+            {/* {selectedLease && ( */}
+            {true && (
+              <Link href={`/dashboard/leases/view?id=${(selectedLease as any)?.id}`}>
+                <div className="bg-gray-50 p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md">
+                  <h2 className="text-lg font-semibold text-gray-900">Tenant Info</h2>
+                  <p className="text-sm text-gray-700">Tenant Name: {payment?.lease.tenant.name ?? (lease as any)?.tenant.name}</p>
+                  {/* <p className="text-sm text-gray-700">Block: {(payment as any)?.lease.rooms[0].buildingId}</p>
+                  <p className="text-sm text-gray-700">Office: {(payment as any)?.lease.rooms[0].name}</p> */}
+                </div>
+              </Link>
+            )}
 
-          {/* Display Selected Bank Information */}
-          {selectedBank && (
-            <div className="bg-gray-50 p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md">
-              <h2 className="text-lg font-semibold text-gray-900">Selected Bank</h2>
-              <p className="text-sm text-gray-700">Bank Name: {selectedBank.name}</p>
-              <p className="text-sm text-gray-700">Account Number: {selectedBank.accountNumber}</p>
-              <p className="text-sm text-gray-700">Branch: {selectedBank.branch}</p>
-            </div>
-          )}
+            {/* Display Selected Bank Information */}
+            {selectedBank && (
+              <div className="bg-gray-50 p-4 rounded-lg shadow-sm cursor-pointer hover:shadow-md">
+                <h2 className="text-lg font-semibold text-gray-900">Bank Info</h2>
+                <p className="text-sm text-gray-700">Bank Name: {selectedBank.name}</p>
+                <p className="text-sm text-gray-700">Account Number: {selectedBank.accountNumber}</p>
+                <p className="text-sm text-gray-700">Branch: {selectedBank.branch}</p>
+              </div>
+            )}
+          </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(handleSubmit)} className="flex flex-col gap-2">
@@ -450,69 +449,28 @@ export default function ViewPayments() {
                 <div className="col-span-4 sm:col-span-1">
                   <FormField
                     control={form.control}
-                    name="leaseId"
+                    name="bankId"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Lease</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant="outline"
-                                role="combobox"
-                                className={cn(
-                                  "w-[200px] justify-between",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                                disabled={!creating}
-                              >
-                                {field.value
-                                  ? leases.find(
-                                      (lease: Lease) => lease.id === field.value
-                                    )?.tenant.name
-                                  : "Select lease"}
-                                <ChevronsUpDown className="opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[200px] p-0">
-                            <Command>
-                              <CommandInput
-                                placeholder="Search room number..."
-                                className="h-9"
-                              />
-                              <CommandList>
-                                <CommandEmpty>No lease found.</CommandEmpty>
-                                <CommandGroup>
-                                  {leases.map((lease: Lease) => {
-                                    const leaseRooms = rooms.filter((room: Room) => lease.roomIds?.includes(room.id));
-                                    const roomNames = leaseRooms.map((room: Room) => room.name).join(", ");
-                                    const searchableValue = roomNames || lease.tenant.name;
-                                    return (
-                                      <CommandItem
-                                        value={searchableValue}
-                                        key={lease.id}
-                                        onSelect={() => {
-                                          form.setValue("leaseId", lease.id);
-                                        }}
-                                      >
-                                        {`${lease.tenant.name} - Lease #${lease.id}${roomNames ? ` (${roomNames})` : ""}`}
-                                        <Check
-                                          className={cn(
-                                            "ml-auto",
-                                            lease.id === field.value
-                                              ? "opacity-100"
-                                              : "opacity-0"
-                                          )}
-                                        />
-                                      </CommandItem>
-                                    );
-                                  })}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                      <FormItem>
+                        <FormLabel>Bank</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value?.toString() ?? ""}
+                          disabled={!creating}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Select a bank" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {banks.map((bank: Bank) => (
+                              <SelectItem key={bank.id} value={bank.id!.toString()}>
+                                {bank.name} - {bank.accountNumber} - {bank.branch}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -640,35 +598,6 @@ export default function ViewPayments() {
 
                 <FormField
                   control={form.control}
-                  name="bankId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Bank</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value?.toString() ?? ""}
-                        disabled={!creating}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Select a bank" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {banks.map((bank: Bank) => (
-                            <SelectItem key={bank.id} value={bank.id!.toString()}>
-                              {bank.name} - {bank.accountNumber} - {bank.branch}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
                   name="referenceNumber"
                   render={({ field }) => (
                     <FormItem>
@@ -695,9 +624,14 @@ export default function ViewPayments() {
                       <FormItem>
                         <FormLabel>Notes</FormLabel>
                         <FormControl>
-                          <Input
+                          {/* <Input
                             {...field}
                             className="bg-white"
+                            disabled={!creating}
+                          /> */}
+                          <Textarea
+                            {...field}
+                            className="bg-white "
                             disabled={!creating}
                           />
                         </FormControl>
