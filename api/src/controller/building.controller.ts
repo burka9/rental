@@ -92,10 +92,35 @@ export async function createBuilding(building: Partial<Building>) {
 	return newBuilding
 }
 
-export async function updateBuilding(id: number, building: Partial<Building>) {
-	const updatedBuilding = await BuildingRepository.update(id, building)
+export async function updateBuilding(id: number, buildingData: Partial<Building>) {
+  // First get the existing building with its relations
+  const existingBuilding = await BuildingRepository.findOne({
+    where: { id },
+    relations: ['rooms']
+  });
 
-	return updatedBuilding
+  if (!existingBuilding) {
+    throw new Error('Building not found');
+  }
+
+  // Update only the allowed fields
+  const updatedBuilding = BuildingRepository.merge(existingBuilding, {
+    name: buildingData.name,
+    address: buildingData.address,
+    noOfFloors: buildingData.noOfFloors,
+    noOfBasements: buildingData.noOfBasements,
+    // Preserve the existing rooms relationship
+    rooms: existingBuilding.rooms
+  });
+
+  // Save the updated building
+  await BuildingRepository.save(updatedBuilding);
+
+  // Return the updated building with its relations
+  return BuildingRepository.findOne({
+    where: { id },
+    relations: ['rooms']
+  });
 }
 
 export async function deleteBuilding(id: number) {

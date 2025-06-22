@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { useForm } from "react-hook-form";
 import { Input } from "@/components/ui/input";
+import { Loader2 } from "lucide-react";
 import {
   Form,
   FormField,
@@ -12,10 +13,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2 } from "lucide-react";
 import { axios } from "@/lib/axios";
 import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
+import { LoadingSpinner } from "@/components/loading-spinner";
 
 const loginSchema = z.object({
   phone: z.string().min(2, "Phone number must be at least 10 characters"),
@@ -64,14 +65,7 @@ const LoginPage = () => {
 
   // Show loading overlay when page is loading
   if (loading && !form.formState.isSubmitting) {
-    return (
-      <div className="w-screen h-screen flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen size="lg" text="Loading..." />;
   }
 
   return (
@@ -91,10 +85,7 @@ const LoginPage = () => {
       <div className="w-full md:w-1/2 flex items-center justify-center p-8 relative">
         {loading && (
           <div className="absolute inset-0 bg-white bg-opacity-70 flex items-center justify-center z-10 rounded-lg">
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-              <p className="text-sm text-gray-600">Signing in...</p>
-            </div>
+            <LoadingSpinner size="md" text="Signing in..." />
           </div>
         )}
         <div className="w-full max-w-md">

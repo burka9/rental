@@ -1,12 +1,16 @@
 import { In } from "typeorm/find-options/operator/In"
 import { Database } from "../db"
 import { Room } from "../entities/Room.entity"
+import { UserFilter } from "../routes/auth.routes"
 
 export const RoomRepository = Database.getRepository(Room)
 
-export async function getRooms(ids?: number[]) {
+export async function getRooms(filter: UserFilter, ids?: number[]) {
 	const rooms = await RoomRepository.find({
-		where: ids ? { id: In(ids) }: {}
+		where: {
+			...filter,
+			id: ids ? In(ids) : undefined
+		}
 	})
 	return rooms
 }
