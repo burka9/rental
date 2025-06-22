@@ -112,8 +112,10 @@ export default function(): Router {
 	router.post('/:id/verify', upload.single('invoice'), async (req, res) => {
 			try {
 					const { id } = req.params
+
 					const verificationData = {
 							...req.body,
+							paidAmount: Number(req.body.paidAmount),
 							invoicePath: req.file?.path,
 							verified: true,
 							verificationDate: new Date()

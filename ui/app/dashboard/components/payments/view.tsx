@@ -50,9 +50,11 @@ const formSchema = z.object({
   paidAmount: z.coerce.number().min(0, "Paid amount must be non-negative"),
   paymentDate: dateForm,
   bankId: z.coerce.number().min(1, "Bank is required"),
-  referenceNumber: z.string().min(0, "Reference number is required"),
+  referenceNumber: z.string().min(1, "Reference number is required"),
   notes: z.string().optional(),
-  bankSlipAttachment: z.any().optional(),
+  bankSlipAttachment: z.any().refine((file) => file instanceof File, {
+    message: "Receipt is required",
+  })
 });
 
 // Component to handle file display and download for Bank Slip
@@ -178,7 +180,6 @@ export default function ViewPayments() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       leaseId: 0,
-      paidAmount: 0,
       paymentDate: {
         day: currentEthDay,
         month: currentEthMonth,
@@ -409,12 +410,12 @@ export default function ViewPayments() {
               >
                 {creating ? "Cancel" : "Back"}
               </Button>
-              <Link
+              {!creating && <Link
                 href={`/dashboard/payments/verify?id=${payment?.id}`}
                 data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.FINANCE_ADMIN]}
               >
                 <Button variant={"outline"} className="bg-green-600 text-white">Verify</Button>
-              </Link>
+              </Link>}
             </div>
           </div>
 

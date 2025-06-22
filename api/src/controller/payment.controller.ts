@@ -3,6 +3,7 @@ import { Payment } from "../entities/Payment.entity"
 import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
 import { In, LessThan } from "typeorm"
 import { Room } from "../entities/Room.entity"
+import logger from "../lib/logger"
 
 export const PaymentRepository = Database.getRepository(Payment)
 export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
@@ -105,11 +106,16 @@ export async function createPayment(payment: Partial<Payment>) {
     if (!payment.leaseId || !payment.bankId || !payment.paidAmount) {
         throw new Error("Missing required fields")
     }
+
+    logger.debug(payment)
     
     const newPayment = PaymentRepository.create({
-        ...payment,
+        leaseId: payment.leaseId,
+        paidAmount: payment.paidAmount,
         paymentDate: new Date(),
-        isVerified: payment.isVerified || false,
+        bankId: payment.bankId,
+        referenceNumber: payment.referenceNumber,
+        notes: payment.notes,
         bankSlipPath: payment.bankSlipPath,
     })
     
@@ -117,6 +123,8 @@ export async function createPayment(payment: Partial<Payment>) {
 }
 
 export async function verifyPayment(id: number, verificationData: Partial<Payment>) {
+    logger.debug(verificationData)
+
     const payment = await PaymentRepository.findOne({
         where: { id },
         relations: ['lease', 'bank']
@@ -129,9 +137,6 @@ export async function verifyPayment(id: number, verificationData: Partial<Paymen
     if (payment.isVerified) {
         throw new Error("Payment already verified");
     }
-
-    // TODO: remove later
-    // await markPaidUntilNow(payment.leaseId)
 
     // Update payment with verification data
     await PaymentRepository.update(id, {
