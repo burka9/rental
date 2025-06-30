@@ -6,6 +6,7 @@ export type User = {
   id: number;
   phone: string;
   role: ROLES;
+	password?: string
   buildingId: number | null;
   isActive: boolean;
   createdAt: string;

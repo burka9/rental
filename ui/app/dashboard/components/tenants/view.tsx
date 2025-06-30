@@ -1,47 +1,68 @@
 'use client'
-import { ROLES, Tenant } from "@/lib/types";
+
+import { Lease, ROLES, Tenant } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { useFieldArray, useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronLeftIcon, X } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { toEthiopian } from "@/lib/date-converter";
+
+// UI Components
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+// Icons
+import { ChevronLeft, Loader2, X, FileSignature, FileCheck2 } from "lucide-react";
+import Link from "next/link";
+
+// Re-export ChevronLeft as ChevronLeftIcon for consistency with other components
+const ChevronLeftIcon = ChevronLeft
+
+// Custom Components
 import { DataTable } from "./lease/data-table";
 import { columns } from "./lease/columns";
+
+// Store
 import { useTenantStore } from "@/lib/store/tenants";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { usePropertyStore } from "@/lib/store/property";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useStore } from "@/lib/store";
+
+// Utils
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { toEthiopian } from "@/lib/date-converter";
+
+// Loading Skeleton
+const FormFieldSkeleton = ({ label = true }: { label?: boolean }) => (
+  <div className="space-y-2">
+    {label && <Skeleton className="h-4 w-24" />}
+    <Skeleton className="h-10 w-full" />
+  </div>
+)
+
+const SectionSkeleton = ({ title = true }: { title?: boolean }) => (
+  <Card className="animate-pulse">
+    {title && (
+      <CardHeader>
+        <Skeleton className="h-6 w-48" />
+      </CardHeader>
+    )}
+    <CardContent className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <FormFieldSkeleton />
+        <FormFieldSkeleton />
+        <FormFieldSkeleton />
+        <FormFieldSkeleton />
+      </div>
+    </CardContent>
+  </Card>
+)
 
 // Define month names as a const tuple for Zod
 const monthNames = [
@@ -105,19 +126,44 @@ const formSchema = z.object({
 });
 
 export default function ViewTenant() {
-  const [creating, setCreating] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [tenant, setTenant] = useState<Tenant | null>(null);
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Initialize stores
+  useStore(); // Used for role-based access control via data-roles
   const { fetchTenants, fetchTenant, createTenant, updateTenant, deleteTenant } = useTenantStore();
   const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
+  
+  // State management
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  // Derived state
+  const [creating, setCreating] = useState(searchParams.get('new') === 'true');
+  const [editing, setEditing] = useState(searchParams.get('edit') === 'true');
+  
+  // Role-based access control is handled via data-roles attribute
 
   useEffect(() => {
-    fetchTenants();
-    fetchBuildings();
-    fetchRooms();
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          fetchTenants(),
+          fetchBuildings(),
+          fetchRooms()
+        ]);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        toast.error('Failed to load required data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
   }, [fetchTenants, fetchBuildings, fetchRooms]);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -157,7 +203,15 @@ export default function ViewTenant() {
     name: "endDate",
   });
 
-  const leases = useMemo(() => tenant?.leases ?? [], [tenant]);
+  const leases = useMemo<Lease[]>(() => {
+    if (!tenant || !tenant.leases) return [];
+    return tenant.leases.map(lease => ({
+      ...lease,
+      startDate: new Date(lease.startDate),
+      endDate: new Date(lease.endDate),
+      active: lease.active ?? true
+    }));
+  }, [tenant]);
 
   useEffect(() => {
     const id = Number(searchParams.get("id"));
@@ -231,213 +285,296 @@ export default function ViewTenant() {
     setEditing(searchParams.get("edit") === "true");
   }, [searchParams]);
 
-  const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    if (creating) {
-      console.log(values)
-      
-      const formData = new FormData();
-      formData.append("name", values.name);
-      if (values.phone) formData.append("phone", values.phone);
-      if (values.address) formData.append("address", values.address);
-      if (values.tinNumber) formData.append("tinNumber", values.tinNumber);
-      if (values.startDate)
-        formData.append("startDate", JSON.stringify(values.startDate));
-      if (values.endDate)
-        formData.append("endDate", JSON.stringify(values.endDate));
-      if (values.agreementFile)
-        formData.append("agreementFile", values.agreementFile);
-      formData.append("paymentAmountPerMonth", JSON.stringify(values.paymentAmountPerMonth));
-      formData.append("rooms", JSON.stringify(values.rooms));
-      if (values.deposit) formData.append("deposit", values.deposit.toString());
-      if (values.lateFee) formData.append("lateFee", values.lateFee.toString());
-      if (values.lateFeeType) formData.append("lateFeeType", values.lateFeeType);
-      formData.append("paymentIntervalInMonths", values.paymentIntervalInMonths);
-      if (values.initialPaymentAmount)
-        formData.append("initialPaymentAmount", values.initialPaymentAmount.toString());
-      if (values.initialPaymentDate)
-        formData.append("initialPaymentDate", values.initialPaymentDate.toISOString());
-      formData.append("isShareholder", values.isShareholder ? "true" : "false");
+  const handleSubmit = async (values: z.infer<typeof formSchema>): Promise<void> => {
+    setIsSubmitting(true);
+    
+    try {
+      if (creating) {
+        const formData = new FormData();
+        formData.append("name", values.name);
+        if (values.phone) formData.append("phone", values.phone);
+        if (values.address) formData.append("address", values.address);
+        if (values.tinNumber) formData.append("tinNumber", values.tinNumber);
+        if (values.startDate) formData.append("startDate", JSON.stringify(values.startDate));
+        if (values.endDate) formData.append("endDate", JSON.stringify(values.endDate));
+        if (values.agreementFile) formData.append("agreementFile", values.agreementFile);
+        formData.append("paymentAmountPerMonth", JSON.stringify(values.paymentAmountPerMonth));
+        formData.append("rooms", JSON.stringify(values.rooms));
+        if (values.deposit) formData.append("deposit", values.deposit.toString());
+        if (values.lateFee) formData.append("lateFee", values.lateFee.toString());
+        if (values.lateFeeType) formData.append("lateFeeType", values.lateFeeType);
+        formData.append("paymentIntervalInMonths", values.paymentIntervalInMonths);
+        if (values.initialPaymentAmount) formData.append("initialPaymentAmount", values.initialPaymentAmount.toString());
+        if (values.initialPaymentDate) formData.append("initialPaymentDate", values.initialPaymentDate.toISOString());
+        formData.append("isShareholder", values.isShareholder ? "true" : "false");
 
-      createTenant(formData)
-        .then((data) => {
-          if (data) {
-            toast.success("Tenant created successfully");
-            router.push("/dashboard/tenants");
-          } else {
-            toast.error("Failed to create tenant");
-          }
-        })
-        .catch((error) => {
-          console.error(error);
-          toast.error(error.response?.data?.message ?? "Failed to create tenant");
-        });
-    } else if (editing && tenant) {
-      const formData = new FormData()
-
-      if (values.phone) formData.append("phone", values.phone)
-      if (values.address) formData.append("address", values.address)
-      if (values.tinNumber) formData.append("tinNumber", values.tinNumber)
-      formData.append("isShareholder", values.isShareholder ? "true" : "false")
-      
-      updateTenant(formData)
-        .then((data) => {
-          if (data) {
-            toast.success("Tenant updated successfully");
-            router.push("/dashboard/tenants");
-          } else {
-            toast.error("Failed to updated tenant");
-          }
-        })
-        .catch((error) => {
-          console.error(error);
-          toast.error(error.response?.data?.message ?? "Failed to update tenant");
-        });
+        const data = await createTenant(formData);
+        if (data) {
+          toast.success("Tenant created successfully");
+          router.push("/dashboard/tenants");
+          return;
+        }
+        toast.error("Failed to create tenant");
+      } else if (editing && tenant) {
+        const formData = new FormData();
+        if (values.phone) formData.append("phone", values.phone);
+        if (values.address) formData.append("address", values.address);
+        if (values.tinNumber) formData.append("tinNumber", values.tinNumber);
+        formData.append("isShareholder", values.isShareholder ? "true" : "false");
+        
+        const data = await updateTenant(formData);
+        if (data) {
+          toast.success("Tenant updated successfully");
+          router.push("/dashboard/tenants");
+          return;
+        }
+        toast.error("Failed to update tenant");
+      }
+    } catch (error: unknown) {
+      const handleError = (error: unknown): void => {
+        console.error('Error:', error);
+        toast.error('An error occurred. Please try again.');
+      };
+      handleError(error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!tenant?.id) return;
-    deleteTenant(tenant.id)
-      .then((data) => {
-        if (data) {
-          router.push(`/dashboard/tenants?message=Tenant deleted successfully`);
-        } else {
-          toast.error("Failed to delete tenant");
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-        toast.error("Failed to delete tenant");
-      });
-  };
 
-  const getDaysInMonth = (monthIndex: number | undefined, year: number | undefined) => {
-    if (!monthIndex || year === undefined) return [];
-    if (monthIndex > monthNames.length || monthIndex < 1) return [];
+    setIsDeleting(true);
+  try {
+    const success = await deleteTenant(tenant.id);
+    if (success) {
+      toast.success('Tenant deleted successfully');
+      router.push('/dashboard/tenants');
+    } else {
+      toast.error('Failed to delete tenant');
+    }
+  } catch (error) {
+    console.error('Error deleting tenant:', error);
+    toast.error('An error occurred while deleting the tenant');
+  } finally {
+    setIsDeleting(false);
+    setOpenDeleteDialog(false);
+  }
+};
 
-    const adjustedMonthIndex = monthIndex - 1; // Adjust for 0-based index
-    const month = monthNames[adjustedMonthIndex];
-    const isPagume = month === "ጳጉሜ";
-    const dayCount = isPagume ? (year % 4 === 3 ? 6 : 5) : 30;
-    return Array.from({ length: dayCount }, (_, idx) => idx + 1);
-  };
+const getDaysInMonth = (monthIndex: number | undefined, year: number | undefined) => {
+  if (!monthIndex || year === undefined) return [];
+  if (monthIndex > monthNames.length || monthIndex < 1) return [];
 
-  return !creating && !tenant ? (
-    <div className="container mx-auto py-8 text-center">
-      <Label className="text-xl font-semibold text-gray-600">Loading...</Label>
-    </div>
-  ) : (
-    <div className="container mx-auto py-8">
-      <div className="flex items-center justify-between mb-6">
+  const adjustedMonthIndex = monthIndex - 1; // Adjust for 0-based index
+  const month = monthNames[adjustedMonthIndex];
+  const isPagume = month === "ጳጉሜ";
+  const dayCount = isPagume ? (year % 4 === 3 ? 6 : 5) : 30;
+  return Array.from({ length: dayCount }, (_, idx) => idx + 1);
+};
+
+// Show loading state
+if (isLoading) {
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Link href="/dashboard/tenants">
-            <Button variant="ghost" size="sm" className="p-2">
-              <ChevronLeftIcon className="h-4 w-4" />
-            </Button>
-          </Link>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {creating ? "Create Tenant" : editing ? "Edit Tenant" : "View Tenant"}
-          </h1>
+          <Skeleton className="h-9 w-9 rounded-md" />
+          <Skeleton className="h-6 w-48" />
         </div>
-        <div className="flex items-center gap-2">
-          <Button
-            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
-            onClick={() => {
-              if (!creating && !editing) {
-                setEditing(true);
-              } else {
-                form.handleSubmit(handleSubmit)();
-              }
-            }}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {creating ? "Create" : editing ? "Save Changes" : "Edit"}
-          </Button>
-          <Button
-            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
-            variant={creating || editing ? "outline" : "destructive"}
-            onClick={() => {
-              if (creating) {
-                router.push("/dashboard/tenants");
-              } else if (editing) {
-                setEditing(false);
-                form.reset({
-                  name: tenant?.name ?? "",
-                  phone: tenant?.phone ?? "",
-                  address: tenant?.address ?? "",
-                  tinNumber: tenant?.tinNumber ?? "",
-                  isShareholder: tenant?.isShareholder ?? false,
-                  startDate: tenant?.leases?.[0]?.startDate
-                    ? [
-                        {
-                          year: tenant.leases[0].startDate.getFullYear(),
-                          month: tenant.leases[0].startDate.getMonth() + 1,
-                          day: tenant.leases[0].startDate.getDate(),
-                        },
-                      ]
-                    : [{ day: undefined, month: undefined, year: undefined }],
-                  endDate: tenant?.leases?.[0]?.endDate
-                    ? [
-                        {
-                          year: tenant.leases[0].endDate.getFullYear(),
-                          month: tenant.leases[0].endDate.getMonth() + 1,
-                          day: tenant.leases[0].endDate.getDate(),
-                        },
-                      ]
-                    : [{ day: undefined, month: undefined, year: undefined }],
-                  paymentIntervalInMonths:
-                    tenant?.leases?.[0]?.paymentIntervalInMonths?.toString() ?? "1",
-                  paymentAmountPerMonth: {
-                    base: tenant?.leases?.[0]?.paymentAmountPerMonth?.base ?? 0,
-                    utility: tenant?.leases?.[0]?.paymentAmountPerMonth?.utility ?? 0,
-                  },
-                  deposit: tenant?.leases?.[0]?.deposit ?? 0,
-                  lateFee: tenant?.leases?.[0]?.lateFee ?? 0,
-                  lateFeeType: tenant?.leases?.[0]?.lateFeeType ?? undefined,
-                  rooms: tenant?.leases?.[0]?.roomIds?.map((roomId: number) => {
-                    const room = rooms.find((r) => r.id === roomId);
-                    return {
-                      buildingId: room?.buildingId?.toString() ?? "",
-                      roomId: roomId.toString(),
-                    };
-                  }) ?? [{}],
-                  initialPaymentAmount: tenant?.leases?.[0]?.initialPayment?.amount ?? 0,
-                  initialPaymentDate: tenant?.leases?.[0]?.initialPayment?.paymentDate ?? undefined,
-                });
-              } else {
-                setOpenDeleteDialog(true);
-              }
-            }}
-          >
-            {creating ? "Cancel" : editing ? "Cancel" : "Delete"}
-          </Button>
-          {creating && <Button
-            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]}
-            onClick={() => {
-              if (creating) {
-                form.handleSubmit(handleSubmit)();
-              } else {
-              }
-            }}
-          >
-            Create
-          </Button>}
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-24" />
+          <Skeleton className="h-10 w-10" />
         </div>
       </div>
 
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="flex space-x-2">
+            <Button variant="ghost">Overview</Button>
+            <Button variant="ghost">Leases</Button>
+            <Button variant="ghost">Payments</Button>
+            <Button variant="ghost">Documents</Button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <SectionSkeleton title={false} />
+          <SectionSkeleton title={false} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+return (
+  <div className="container mx-auto py-6 space-y-6">
+    {/* Header */}
+    <div className="flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => router.back()}
+          className="h-9 w-9"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+          <span className="sr-only">Back</span>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {creating ? 'Add New Tenant' : tenant?.name || 'Tenant Details'}
+          </h1>
+          {!creating && tenant && (
+            <p className="text-sm text-muted-foreground">
+              Tenant ID: {tenant.id}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        {!creating && (
+          <>
+            {editing ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (creating) {
+                      router.push("/dashboard/tenants");
+                    } else {
+                      setEditing(false);
+                      form.reset({
+                        name: tenant?.name ?? "",
+                        phone: tenant?.phone ?? "",
+                        address: tenant?.address ?? "",
+                        tinNumber: tenant?.tinNumber ?? "",
+                        isShareholder: tenant?.isShareholder ?? false,
+                        startDate: tenant?.leases?.[0]?.startDate
+                          ? [{
+                              year: tenant.leases[0].startDate.getFullYear(),
+                              month: tenant.leases[0].startDate.getMonth() + 1,
+                              day: tenant.leases[0].startDate.getDate(),
+                            }]
+                          : [{ day: undefined, month: undefined, year: undefined }],
+                        endDate: tenant?.leases?.[0]?.endDate
+                          ? [{
+                              year: tenant.leases[0].endDate.getFullYear(),
+                              month: tenant.leases[0].endDate.getMonth() + 1,
+                              day: tenant.leases[0].endDate.getDate(),
+                            }]
+                          : [{ day: undefined, month: undefined, year: undefined }],
+                        paymentIntervalInMonths: tenant?.leases?.[0]?.paymentIntervalInMonths?.toString() ?? "1",
+                        paymentAmountPerMonth: {
+                          base: tenant?.leases?.[0]?.paymentAmountPerMonth?.base ?? 0,
+                          utility: tenant?.leases?.[0]?.paymentAmountPerMonth?.utility ?? 0,
+                        },
+                        deposit: tenant?.leases?.[0]?.deposit ?? 0,
+                        lateFee: tenant?.leases?.[0]?.lateFee ?? 0,
+                        lateFeeType: tenant?.leases?.[0]?.lateFeeType ?? undefined,
+                        // rooms: tenant?.leases?.[0]?.roomIds?.map((roomId: number) => ({ buildingId: tenant?.leases?.[0]?.buildingId, roomId: roomId.toString() })) || [],
+                      });
+                    }
+                  }}
+                  disabled={isSubmitting}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <FileCheck2 className="mr-2 h-4 w-4" />
+                  )}
+                  Save Changes
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditing(true)}
+                  disabled={isSubmitting}
+                >
+                  <FileSignature className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => setOpenDeleteDialog(true)}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <X className="mr-2 h-4 w-4" />
+                  )}
+                  Delete
+                </Button>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {creating && (
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push("/dashboard/tenants")}
+            disabled={isSubmitting}
+          >
+            <X className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]}
+          >
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileCheck2 className="mr-2 h-4 w-4" />
+            )}
+            Create Tenant
+          </Button>
+        </div>
+      )}
+    </div>
+
       <div className="flex flex-col gap-8">
-        <Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+        <Dialog open={openDeleteDialog} onOpenChange={!isDeleting ? setOpenDeleteDialog : undefined}>
           <DialogContent>
             <DialogTitle>Delete Tenant</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this tenant?
+              Are you sure you want to delete this tenant? This action cannot be undone.
             </DialogDescription>
             <DialogFooter>
-              <Button variant="destructive" onClick={handleDelete}>
-                Yes
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : 'Yes, delete'}
               </Button>
-              <Button variant="outline" onClick={() => setOpenDeleteDialog(false)}>
-                No
+              <Button 
+                variant="outline" 
+                onClick={() => setOpenDeleteDialog(false)}
+                disabled={isDeleting}
+              >
+                No, cancel
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1142,7 +1279,18 @@ export default function ViewTenant() {
               </div>
             </CardHeader>
             <CardContent className="pt-6">
-              <DataTable columns={columns} data={leases.filter((lease) => lease.active)} />
+              {leases.length > 0 ? (
+                <DataTable
+                  columns={columns}
+                  data={leases.filter((lease) => lease.active)}
+                  searchKey="id"
+                  onSearch={() => {}}
+                />
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No active leases found for this tenant.
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

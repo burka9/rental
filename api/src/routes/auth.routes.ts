@@ -4,6 +4,7 @@ import { ROLES, User } from '../entities/User.entity';
 import { compareSync } from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import logger from '../lib/logger';
+import { SessionRepository } from '../controller/user.controller';
 
 const UserRepository = Database.getRepository(User);
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -16,7 +17,7 @@ interface JwtPayload {
 }
 
 // Middleware to verify Bearer token
-export const verifyToken = (req: Request, res: Response, next: NextFunction) => {
+export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
@@ -26,6 +27,12 @@ export const verifyToken = (req: Request, res: Response, next: NextFunction) => 
   }
 
   try {
+    const session = await SessionRepository.findOneBy({ token })
+    if (!session || session.expiresAt < new Date() || !session.isActive) {
+      res.status(401).json({ error: 'Invalid token' });
+      return;
+    }
+    
     const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
     logger.debug(decoded)
     res.locals.user = decoded; // Attach user data to res.locals
@@ -58,6 +65,24 @@ export function verifyUser(req: Request, res: Response, next: NextFunction) {
   next()
 }
 
+export function isSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = res.locals.user
+  if (user.role !== ROLES.SUPERADMIN) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next()
+}
+
+export function isAdmin(req: Request, res: Response, next: NextFunction) {
+  const user = res.locals.user
+  if (user.role !== ROLES.ADMIN && user.role !== ROLES.SUPERADMIN) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  next()
+}
+
 export default function (): Router {
   const router = Router();
 
@@ -77,6 +102,11 @@ export default function (): Router {
         return;
       }
 
+      const expireDate = {
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        expiresIn: '1d' as const
+      }
+
       // Create JWT
       const token = jwt.sign(
         {
@@ -86,8 +116,15 @@ export default function (): Router {
           buildingId: user.buildingId || null,
         },
         JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: expireDate.expiresIn }
       );
+
+      const session = await SessionRepository.save({
+        userId: user.id,
+        expiresAt: expireDate.expiresAt,
+        token,
+        isActive: true,
+      })
 
       // Respond with user details and token
       res.status(200).json({

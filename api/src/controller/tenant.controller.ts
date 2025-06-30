@@ -5,50 +5,61 @@ import { Tenant } from "../entities/Tenant.entity"
 export const TenantRepository = Database.getRepository(Tenant)
 
 export async function getTenant({
-    skip = 0,
-    take = 10,
-    search = "",
-    isShareholder,
-    officeNumber,
-  }: {
-    skip?: number;
-    take?: number;
-    search?: string;
-    isShareholder?: string; // "true", "false", or undefined
-    officeNumber?: string;
-  }): Promise<[Tenant[], number]> {
-    const query = TenantRepository.createQueryBuilder("tenant");
-  
-    // Apply search filter on name or phone
-    if (search) {
-      query.where("tenant.name LIKE :search OR tenant.phone LIKE :search", { 
-        search: `%${search}%` 
-      });
-    }
+  skip = 0,
+  take = 10,
+  search = "",
+  isShareholder,
+  officeNumber,
+  filters,
+}: {
+  skip?: number;
+  take?: number;
+  search?: string;
+  isShareholder?: string; // "true", "false", or undefined
+  officeNumber?: string;
+  filters?: {
+    buildingId?: string;
+  };
+}): Promise<[Tenant[], number]> {
+  const query = TenantRepository.createQueryBuilder("tenant")
+    .leftJoinAndSelect("tenant.leases", "leases")
+    .leftJoinAndSelect("rooms", "rooms", "FIND_IN_SET(rooms.id, leases.roomIds)");
 
-    // Apply office filter
-    if (officeNumber && officeNumber !== "all") {
-      query
-        .leftJoinAndSelect("tenant.leases", "leases")
-        .leftJoinAndSelect("rooms", "rooms", "FIND_IN_SET(rooms.id, leases.roomIds)")
-        .andWhere("rooms.name = :officeNumber", {
-          officeNumber,
-        });
-    }
-
-    // Apply shareholder filter
-    if (isShareholder === "true" || isShareholder === "false") {
-      query.andWhere("tenant.isShareholder = :isShareholder", { 
-        isShareholder: isShareholder === "true" 
-      });
-    }
-  
-    // Apply pagination
-    query.skip(skip).take(take);
-  
-    // Execute query and return results with total count
-    return query.getManyAndCount();
+  // Apply search filter on name or phone
+  if (search) {
+    query.andWhere("(tenant.name LIKE :search OR tenant.phone LIKE :search)", {
+      search: `%${search}%`,
+    });
   }
+
+  // Apply office filter
+  if (officeNumber && officeNumber !== "all") {
+    query.andWhere("rooms.name = :officeNumber", {
+      officeNumber,
+    });
+  }
+
+  // Apply shareholder filter
+  if (isShareholder === "true" || isShareholder === "false") {
+    query.andWhere("tenant.isShareholder = :isShareholder", {
+      isShareholder: isShareholder === "true",
+    });
+  }
+
+  // Apply buildingId filter
+  if (filters?.buildingId) {
+    query.andWhere("rooms.buildingId = :buildingId", {
+      buildingId: filters.buildingId,
+    });
+  }
+
+  // Apply pagination
+  query.skip(skip).take(take);
+
+  // Execute query and return results with total count
+  return query.getManyAndCount();
+}
+
 
 export async function getSingleTenant(options: FindOptionsWhere<Tenant>) {
     return TenantRepository.findOne({
