@@ -26,6 +26,10 @@ export const columns: ColumnDef<Payment>[] = [
 		header: "Reference Number"
 	},
 	{
+		accessorKey: "invoiceNumber",
+		header: "FS Number"
+	},
+	{
 		accessorKey: "isVerified",
 		cell: ({ row }) => row.original.isVerified
 			? <p className="bg-green-300 rounded-full text-center">Verified</p>
