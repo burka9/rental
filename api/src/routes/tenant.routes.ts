@@ -8,6 +8,7 @@ import { getRoom, getRooms, RoomRepository, updateRoom } from "../controller/roo
 import { toGregorian } from "../lib/date-converter";
 import { In } from "typeorm";
 import { verifyToken, verifyUser } from "./auth.routes";
+import { exportTenantsToExcel } from "../controller/report.controller";
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -192,6 +193,23 @@ export default function (): Router {
       message: "Tenant deleted successfully",
       data: tenant,
     });
+  });
+
+  // router.get("/export", verifyToken, verifyUser, async (req, res) => {
+  router.get("/export", async (req, res) => {
+    try {
+      const buffer = await exportTenantsToExcel();
+  
+      // Set headers for Excel file download
+      res.setHeader('Content-Disposition', 'attachment; filename=tenants-report.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  
+      // Send the buffer
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error exporting tenants:', error);
+      res.status(500).json({ success: false, message: 'Failed to export tenants' });
+    }
   });
 
   return router;

@@ -31,7 +31,7 @@ export const getUser = async ({ skip, take, search }: { skip: number, take: numb
 }
 
 export const createUser = async (user: Partial<User>) => {
-	const { phone, password, role, buildingId } = user
+	const { name, phone, password, role, buildingId } = user
 	
 	if (!role || !Object.values(ROLES).includes(role)) {
 		throw new Error("Invalid role")
@@ -51,6 +51,7 @@ export const createUser = async (user: Partial<User>) => {
 	}
 	
 	const newUser = await UserRepository.save({
+		name,
 		phone,
 		password: hashSync(password, 10),
 		role,
@@ -69,6 +70,36 @@ export const createUser = async (user: Partial<User>) => {
 			isActive: newUser.isActive,
 		},
 	}
+}
+
+export const updateUser = async (user: Partial<User>) => {
+	const { id, name, phone, password, role, buildingId } = user
+
+	const existingUser = await UserRepository.findOneBy({ id })
+	if (!existingUser) {
+		throw new Error("User not found")
+	}
+	
+	if (!role || !Object.values(ROLES).includes(role)) {
+		throw new Error("Invalid role")
+	}
+	
+	if (!phone) {
+		throw new Error("Phone is required")
+	}
+	
+	if (role === ROLES.BUILDING_ADMIN && !buildingId) {
+		throw new Error("Building ID is required for BUILDING_ADMIN")
+	}
+	
+	const building = await Database.getRepository(Building).findOneBy({ id: buildingId || existingUser.buildingId })
+	if (!building) {
+		throw new Error("Building not found")
+	}
+	
+	console.log(user)
+	
+	return {}
 }
 
 

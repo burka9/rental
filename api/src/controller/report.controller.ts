@@ -9,6 +9,8 @@ import { Payment } from '../entities/Payment.entity';
 import { Lease } from '../entities/Lease.entity';
 import { notoEthiopicBase64 } from "./NotoEthiopicBase64";
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { toEthiopian } from '../lib/date-converter';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -27,6 +29,13 @@ export type BasicReport = {
     overduePayments: {
         totalTenants: number;
         totalAmount: number;
+        payments: {
+            leaseId: string;
+            tenantId: string;
+            tenantName: string;
+            dueDate: Date;
+            paymentAmount: number;
+        }[];
     };
     upcomingPayment: {
         tenantId: string;
@@ -35,6 +44,63 @@ export type BasicReport = {
         dueDate: Date;
         paymentAmount: number;
     }[];
+}
+
+export async function exportTenantsToExcel(): Promise<Buffer> {
+    const workbook = XLSX.utils.book_new();
+    
+    // Get all tenants with their leases and rooms
+    const tenants = await TenantRepository.find({
+        relations: {
+            leases: true
+        }
+    });
+
+    // Prepare data for Excel
+    const data = await Promise.all(tenants.map(async (tenant) => {
+        const lease = tenant.leases?.[0]; // Assuming each tenant has one lease
+        const rooms = await Promise.all(lease?.roomIds?.map(async (id) => {
+            const room = await RoomRepository.findOne({ where: { id } });
+            return room || null;
+        }) || []);
+        
+        // Get office numbers and sizes
+        const officeNumbers = rooms.map(room => room?.name || '');
+        const officeSizes = rooms.map(room => room?.sizeInSquareMeters || '');
+        
+        return {
+            'Tenant Name': tenant.name,
+            'Address': tenant.address || '',
+            'Phone': tenant.phone || '',
+            'TIN Number': tenant.tinNumber || '',
+            'Office Number 1': officeNumbers[0] || '',
+            'Office Number 2': officeNumbers[1] || '',
+            'Office Number 3': officeNumbers[2] || '',
+            'Office Size 1': officeSizes[0] || '',
+            'Office Size 2': officeSizes[1] || '',
+            'Office Size 3': officeSizes[2] || '',
+            'Rent per Month': lease?.paymentAmountPerMonth?.base || 0,
+            'Utility per Month': lease?.paymentAmountPerMonth?.utility || 0,
+            'Deposit Amount': lease?.deposit || 0,
+            'Start Date': lease?.startDate ? new Date(lease.startDate).toISOString().split('T')[0] : '',
+            'End Date': lease?.endDate ? new Date(lease.endDate).toISOString().split('T')[0] : '',
+            'Payment Interval': lease?.paymentType || ''
+        };
+    }));
+
+    // Create worksheet
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tenants Report');
+
+    // Generate Excel file
+    const buffer = XLSX.write(workbook, {
+        type: 'buffer',
+        bookType: 'xlsx'
+    });
+
+    return buffer;
 }
 
 export async function getBasicReports(): Promise<BasicReport> {
@@ -79,6 +145,13 @@ export async function getBasicReports(): Promise<BasicReport> {
                 const remaining = Number(payment.payableAmount) - (Number(payment.paidAmount) || 0);
                 return total + remaining;
             }, 0),
+            payments: overduePayments.map(payment => ({
+                leaseId: payment.lease?.id?.toString() ?? "0",
+                tenantId: payment.lease?.tenant?.id?.toString() ?? "0",
+                tenantName: payment.lease?.tenant?.name ?? "Unknown",
+                dueDate: payment.dueDate,
+                paymentAmount: Number(payment.payableAmount) - (Number(payment.paidAmount) || 0),
+            }))
         },
         upcomingPayment: upcomingPayments.map(payment => ({
             leaseId: payment.lease?.id?.toString() ?? "0",
@@ -131,7 +204,6 @@ interface TenantDetail {
     const roomRepo = Database.getRepository(Room);
     const leaseRepo = Database.getRepository(Lease);
     const paymentRepo = Database.getRepository(Payment);
-    const tenantRepo = Database.getRepository(TenantRepository.target); 
     const buildingRepo = Database.getRepository(BuildingRepository.target);
   
     const building = await buildingRepo.findOneBy({ id: buildingId });
@@ -368,14 +440,38 @@ export function tempPDF(data: Data): string {
   return "reports/SidamoTeraCommercialCenter.pdf";
 }
 
+
+export const ethiopianMonths = [
+  "መስከረም", // Meskerem (Month 1)
+  "ጥቅምት",  // Tikimt (Month 2)
+  "ህዳር",   // Hidar (Month 3)
+  "ታህሳስ",  // Tahsas (Month 4)
+  "ጥር",     // Tir (Month 5)
+  "የካቲት",  // Yekatit (Month 6)
+  "መጋቢት",  // Megabit (Month 7)
+  "ሚያዝያ",  // Miazia (Month 8)
+  "ግንቦት",  // Ginbot (Month 9)
+  "ሰኔ",     // Sene (Month 10)
+  "ሐምሌ",    // Hamle (Month 11)
+  "ነሐሴ",    // Nehase (Month 12)
+  "ጳጉሜ"    // Pagume (Month 13)
+];
+export function toEthiopianDateString(_date: Date) {
+  const [year, month, date] = toEthiopian(_date.getFullYear(), _date.getMonth() + 1, _date.getDate())
+
+  return `${year} ${ethiopianMonths[month - 1]} ${date+1}`
+}
+
 function addIntro(doc: jsPDF, yPos: number) {
+  const today = toEthiopianDateString(new Date());
+  
   doc.setFontSize(14);
   doc.text("መግቢያ", 20, yPos);
   yPos += 8;
   doc.setFontSize(11);
   doc.text("የዚህ ሪፖርት ዓላማ የኪራይ ዝርዝር መረጃ መስጠት ነው።", 20, yPos);
   yPos += 8;
-  doc.text("ቀን: ሰኔ 17, 2017", 20, yPos);
+  doc.text(`ቀን: ${today}`, 20, yPos);
   yPos += 35;
   return yPos;
 }

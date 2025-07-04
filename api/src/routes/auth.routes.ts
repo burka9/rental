@@ -18,6 +18,8 @@ interface JwtPayload {
 
 // Middleware to verify Bearer token
 export const verifyToken = async (req: Request, res: Response, next: NextFunction) => {
+  console.log('-----------------')
+  console.log(req.url)
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
@@ -76,10 +78,16 @@ export function isSuperAdmin(req: Request, res: Response, next: NextFunction) {
 
 export function isAdmin(req: Request, res: Response, next: NextFunction) {
   const user = res.locals.user
+
+  console.log('---------------')
+  console.log(user.role === ROLES.ADMIN)
+  console.log(user.role === ROLES.SUPERADMIN)
+  
   if (user.role !== ROLES.ADMIN && user.role !== ROLES.SUPERADMIN) {
     res.status(401).json({ error: 'Unauthorized' });
     return;
   }
+
   next()
 }
 

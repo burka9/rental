@@ -3,6 +3,7 @@ import { getUser, createUser, resetPassword, changePassword, revokeAllSessions, 
 import { User } from "../entities/User.entity";
 import { verifyUser, verifyToken, isAdmin } from "./auth.routes";
 import { ROLES } from "../entities/User.entity";
+import { UserRepository } from "../controller/util.controller";
 
 export default function(): Router {
 	const router = Router()
@@ -38,6 +39,15 @@ export default function(): Router {
 				error: error.message,
 			});
 		}
+	})
+
+	router.get("/:id", verifyToken, verifyUser, isAdmin, async (req, res) => {
+		const user = await UserRepository.findOneBy({ id: parseInt(req.params.id) })
+		res.json({
+			success: true,
+			message: "User fetched successfully",
+			data: user,
+		})
 	})
 
 	router.get('/roles', verifyToken, verifyUser, isAdmin, async (req, res) => {
