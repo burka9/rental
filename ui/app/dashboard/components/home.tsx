@@ -86,7 +86,7 @@ export default function Dashboard() {
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold mb-2">{getGreeting()}, {user?.phone || 'Admin'}!</h1>
+              <h1 className="text-3xl md:text-4xl font-bold mb-2">{getGreeting()}, {user?.name || 'Admin'}!</h1>
               <p className="text-blue-100">Here&apos;s what&apos;s happening with your properties today</p>
             </div>
             <Badge variant="secondary" className="mt-4 md:mt-0 bg-white/10 hover:bg-white/20 text-white border-0 px-4 py-2 text-sm font-medium">

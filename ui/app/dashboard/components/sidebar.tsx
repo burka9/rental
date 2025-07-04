@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useStore } from "@/lib/store";
 import { ROLES } from "@/lib/types";
-import { BuildingIcon, HouseIcon, LucideUsers, MilestoneIcon, UserIcon, BellIcon, ChartBarIcon, DollarSign, LogOutIcon, Signature } from "lucide-react";
+import { BuildingIcon, HouseIcon, LucideUsers, MilestoneIcon, UserIcon, BellIcon, ChartBarIcon, DollarSign, LogOutIcon, Signature, SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -90,6 +90,21 @@ export const links = [
     showOnDashboard: true,
     roles: [ROLES.SUPERADMIN, ROLES.ADMIN]
   },
+  {
+    href: "/dashboard/settings",
+    title: "Settings",
+    icon: <SettingsIcon />,
+    selector: "settings",
+    showOnDashboard: false,
+    roles: [
+      ROLES.SUPERADMIN,
+      ROLES.ADMIN,
+      ROLES.BUILDING_ADMIN,
+      ROLES.FINANCE_ADMIN,
+      ROLES.BOARD_MEMBER,
+      ROLES.TENANT
+    ]
+  }
 ];
 
 export default function AppSidebar() {

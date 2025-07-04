@@ -1,294 +1,361 @@
-import { usePropertyStore } from "@/lib/store/property";
-import { Bank } from "@/lib/types";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useForm } from "react-hook-form";
-import * as z from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import Link from "next/link";
-import { ChevronLeftIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { DataTable } from "./data-table";
-import { columns } from "./columns";
+import { usePropertyStore } from "@/lib/store/property"
+import { Bank } from "@/lib/types"
+import { useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { useForm } from "react-hook-form"
+import * as z from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { ArrowLeft, Landmark, Loader2, PencilIcon, Save, Trash2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { toast } from "sonner"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const formSchema = z.object({
-	name: z.string(),
-	branch: z.string(),
-	accountNumber: z.string(),
+  name: z.string().min(1, "Bank name is required"),
+  branch: z.string().min(1, "Branch is required"),
+  accountNumber: z.string().min(1, "Account number is required"),
 })
 
-export default function ViewRoom() {
-	const [creating, setCreating] = useState(false);
-	const [editing, setEditing] = useState(false);
-	const [bank, setBank] = useState<Bank | null>(null);
-	const router = useRouter();
-	const { banks, fetchBank, createBank, updateBank, deleteBank } = usePropertyStore();
+export default function ViewBank() {
+  const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [bank, setBank] = useState<Bank | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const router = useRouter()
+  const { fetchBank, createBank, updateBank, deleteBank } = usePropertyStore()
+  const searchParams = useSearchParams()
 
-	const form = useForm<z.infer<typeof formSchema>>({
-		mode: "onChange",
-		resolver: zodResolver(formSchema),
-		defaultValues: {
-			name: bank?.name ?? "",
-			branch: bank?.branch ?? "",
-			accountNumber: bank?.accountNumber ?? "",
-		}
-	})
+  const form = useForm<z.infer<typeof formSchema>>({
+    mode: "onChange",
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: "",
+      branch: "",
+      accountNumber: "",
+    }
+  })
 
-  const searchParams = useSearchParams();
+  const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    setSubmitting(true)
+    try {
+      if (creating) {
+        const data = await createBank(values)
+        if (data) {
+          toast.success("Bank account created successfully")
+          router.push(`/dashboard/banks?message=Bank created successfully`)
+        }
+      } else if (editing && bank) {
+        const updatedBank = await updateBank({
+          ...values,
+          id: bank.id,
+        })
+        if (updatedBank) {
+          setBank(updatedBank)
+          setEditing(false)
+          toast.success("Bank account updated successfully")
+        }
+      }
+    } catch (error) {
+      console.error("Error saving bank:", error)
+      toast.error("Failed to save bank account. Please try again.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+	  const [openDeleteDialog, setOpenDeleteDialog] = useState(false)
 
-	const handleSubmit = (values: z.infer<typeof formSchema>) => {
-		console.log(values)
-	}
-	
-	const buttonClicked = () => {
-		if (creating) {
-			form.trigger()
-				.then(data => {
-					if (!data) throw new Error()
+  const handleDelete = async () => {
+    try {
+      const success = await deleteBank(bank?.id ?? 0)
+      if (success) {
+        toast.success("Bank account deleted successfully")
+        router.push(`/dashboard/banks?message=Bank deleted successfully`)
+      }
+    } catch (error) {
+      console.error("Error deleting bank:", error)
+      toast.error("Failed to delete bank account")
+    }
+  }
 
-					return createBank(form.getValues())
-				})
-				.then(data => {
-					console.log(form.getValues())
-					
-					if (data) {
-						router.push(`/dashboard/banks?message=Bank created successfully`)
-					} else {
-						console.log('error')
-					}
-				})
-		} else if (editing) {
-			if (!bank) return
-
-			form.trigger()
-				.then((data) => {
-					if (!data) return
-					
-					updateBank({
-						...form.getValues(),
-						id: bank.id,
-					})
-						.then(data => {
-							if (data == null) {
-								toast.error("Failed to update bank")
-								return
-							}
-
-							setBank(() => ({
-								id: bank.id,
-								...form.getValues()
-							}))
-							toast.success("Bank updated successfully")
-							setEditing(() => false)
-						})
-				})
-				.catch(error => {
-					console.log(error)
-					toast.error("Failed to update bank")
-				})
-		} else {
-			setEditing(() => true)
-		}
-	}
-
-	const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-
-	const handleDelete = () => {
-		deleteBank(bank?.id ?? 0)
-			.then(data => {
-				if (data) {
-					router.push(`/dashboard/banks?message=Bank deleted successfully`)
-				} else {
-					console.log('error')
-				}
-			})
-			.catch(error => {
-				console.log(error)
-			})
-	}
-	
   useEffect(() => {
-		const id = Number(searchParams.get("id"))
+    const id = Number(searchParams.get("id"))
+    const isCreating = searchParams.get("create") === "true"
+    const isEditing = searchParams.get("edit") === "true"
 
-		if (!id) return;
+    setCreating(isCreating)
+    setEditing(isCreating || isEditing)
 
+    if (isCreating) {
+      setLoading(false)
+      return
+    }
+
+    if (!id) {
+      router.push("/dashboard/banks")
+      return
+    }
+
+    setLoading(true)
     fetchBank(id)
       .then((data) => {
-				if (data == null) {
-					router.push(`/dashboard/banks`)
-				} else {
-					setBank(data);
-				}
+        if (!data) {
+          router.push("/dashboard/banks")
+          return
+        }
+        setBank(data)
+        form.reset({
+          name: data.name,
+          branch: data.branch,
+          accountNumber: data.accountNumber
+        })
       })
       .catch((error) => {
-        console.log(error);
-      });
-  }, [fetchBank, searchParams, router]);
+        console.error("Error fetching bank:", error)
+        toast.error("Failed to load bank details")
+        router.push("/dashboard/banks")
+      })
+      .finally(() => setLoading(false))
+  }, [searchParams, fetchBank, router, form])
 
-	useEffect(() => {
-		if (!bank) return;
-
-		form.reset({
-			name: bank?.name
-		})
-	}, [bank, form])
-	
-	useEffect(() => {
-		setCreating(searchParams.get("create") === "true");
-		setEditing(searchParams.get("edit") === "true");
-	}, [searchParams])
-	
-  return !creating && !bank ? <>Loading</> : (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center mb-4">
-					{/* back button */}
-					<Link href="/dashboard/rooms">
-					<Button className="mr-2 p-1 px-2" size="sm"><ChevronLeftIcon size={3} /></Button>
-					</Link>
-					<Label className="text-xl font-bold">{creating ? "Create Bank" : editing ? "Edit Bank" : "View Bank"}</Label>
-				</div>
-        <div className="flex items-center gap-2">
-					<Button size="default" onClick={buttonClicked}>{
-						creating ? "Create" : editing ? "Save Changes" : "Edit"
-					}</Button>
-					<Button size="default" variant={
-						creating ? "outline" : editing ? "outline" : "destructive"
-					} onClick={() => {
-						if (creating) {
-							setCreating(() => false);
-							router.back()
-						} else if (editing) {
-							setEditing(() => false);
-							form.reset({
-								name: bank?.name
-							});
-						} else {
-							setOpenDeleteDialog(true);
-						}
-					}}>{
-						creating ? "Cancel" : editing ? "Cancel" : "Delete"
-					}</Button>
-				</div>
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 px-4">
+        <div className="flex flex-col gap-6">
+          <Skeleton className="h-10 w-64" />
+          <div className="space-y-4">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </div>
       </div>
-      <div className="flex flex-col gap-8">
-				<Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
-					<DialogContent>
-						<DialogTitle>
-							Delete Bank
-						</DialogTitle>
-						<DialogDescription>
-							Are you sure you want to delete this bank?
-						</DialogDescription>
-						<DialogFooter>
-							<Button variant="destructive" onClick={handleDelete}>Yes</Button>
-							<Button variant="outline" onClick={() => setOpenDeleteDialog(() => false)}>No</Button>
-						</DialogFooter>
-					</DialogContent>
-				</Dialog>
-				
-				<Form {...form}>
-					<form
-						onSubmit={form.handleSubmit(handleSubmit)}
-						className="flex flex-col gap-2 w-full mx-auto"
-					>
-						<div className="grid grid-cols-4 gap-4">
-							<FormField
-								control={form.control}
-								name="name"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Bank Name</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												placeholder="Bank Name"
-												readOnly={!creating && !editing}
-												className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
+    )
+  }
 
-							<FormField
-								control={form.control}
-								name="branch"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Branch</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												placeholder="Branch"
-												readOnly={!creating && !editing}
-												className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
+  return (
+    <div className="container mx-auto py-8 px-4">
+      <div className="flex flex-col gap-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={() => router.back()}
+              className="h-8 w-8"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">
+                {creating ? 'Add New Bank Account' : editing ? 'Edit Bank Account' : 'Bank Account Details'}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                {creating ? 'Enter the bank account details' : editing ? 'Update the bank account information' : 'View bank account information'}
+              </p>
+            </div>
+          </div>
+          
+          {!creating && (
+            <div className="flex gap-2">
+              {editing ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setEditing(false)
+                      form.reset({
+                        name: bank?.name || '',
+                        branch: bank?.branch || '',
+                        accountNumber: bank?.accountNumber || ''
+                      })
+                    }}
+                    disabled={submitting}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={form.handleSubmit(handleSubmit)}
+                    disabled={submitting || !form.formState.isDirty}
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setOpenDeleteDialog(true)}
+                    className="gap-2"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </Button>
+                  <Button 
+                    onClick={() => setEditing(true)}
+                    className="gap-2"
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                    Edit
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
-							<FormField
-								control={form.control}
-								name="accountNumber"
-								render={({ field }) => (
-									<FormItem>
-										<FormLabel>Account Number</FormLabel>
-										<FormControl>
-											<Input
-												{...field}
-												placeholder="Account Number"
-												readOnly={!creating && !editing}
-												className={editing || creating ? "bg-white" : "opacity-60 cursor-default"}
-											/>
-										</FormControl>
-										<FormMessage />
-									</FormItem>
-								)}
-							/>
-						</div>
-					</form>
-				</Form>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={openDeleteDialog} onOpenChange={setOpenDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-destructive" />
+                <DialogTitle>Delete Bank Account</DialogTitle>
+              </div>
+              <DialogDescription className="pt-2">
+                Are you sure you want to delete this bank account? This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => setOpenDeleteDialog(false)}
+                disabled={submitting}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleDelete}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Deleting...
+                  </>
+                ) : 'Delete'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-				{
-					creating ? null : <div className="flex flex-col justify-center gap-4">
-						<div className="flex items-center justify-between">
-							<div className="flex flex-col gap-2">
-								<Label className="font-bold text-xl">Offices</Label>
-								{/* <Select onValueChange={floorFilterChange}>
-									<SelectTrigger className="w-[150px]">
-										<SelectValue placeholder="Floor Number" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">All Floors</SelectItem>
-										{Array.from({ length: building?.noOfFloors || 0 }).map((_, i) => (
-											<SelectItem key={i + 1} value={(i + 1).toString()}>
-												Floor {i + 1}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select> */}
-							</div>
+        {/* Main Content */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Landmark className="h-5 w-5 text-primary" />
+              <CardTitle>Bank Information</CardTitle>
+            </div>
+            <CardDescription>
+              {creating ? 'Enter the bank account details' : 'View and manage bank account information'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Bank Name</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="e.g., Commercial Bank of Ethiopia"
+                            readOnly={!creating && !editing}
+                            className={creating || editing ? "bg-white" : "bg-muted/50"}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-							<div className="flex gap-2 items-center">
-								<Link href={`/dashboard/banks/view?create=true&roomId=${bank?.id}`}>
-									<Button>Add Banks</Button>
-								</Link>
-							</div>
-						</div>
+                  <FormField
+                    control={form.control}
+                    name="branch"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Branch</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="e.g., Bole Branch"
+                            readOnly={!creating && !editing}
+                            className={creating || editing ? "bg-white" : "bg-muted/50"}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-						<DataTable columns={columns} data={banks} />
-					</div>
-				}
+                  <FormField
+                    control={form.control}
+                    name="accountNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Account Number</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="e.g., 1000345678901"
+                            readOnly={!creating && !editing}
+                            className={creating || editing ? "bg-white" : "bg-muted/50"}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {creating && (
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => router.back()}
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={submitting || !form.formState.isDirty}
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating...
+                        </>
+                      ) : 'Create Bank Account'}
+                    </Button>
+                  </div>
+                )}
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

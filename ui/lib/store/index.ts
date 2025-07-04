@@ -44,9 +44,9 @@ export const useStore = create<Store>(set => ({
 					return null
 				}
 
-				const { id, role, buildingId, phone } = res.data.user
-				const user: CurrentUser = { id, role, buildingId, phone, token }
-				
+				const { id, role, buildingId, phone, name } = res.data.user
+				const user: CurrentUser = { id, role, buildingId, phone, token, name }
+
 				set({ user })
 				localStorage.setItem('user', JSON.stringify(user))
 

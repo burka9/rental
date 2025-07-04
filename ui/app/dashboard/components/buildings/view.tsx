@@ -475,7 +475,6 @@ export default function ViewBuilding() {
                 <DataTable
                   columns={columns}
                   data={building.rooms}
-                  buildingId={building.id}
                 />
               </CardContent>
             </Card>

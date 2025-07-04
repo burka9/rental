@@ -8,6 +8,7 @@ import { PlusCircle, Users } from "lucide-react"
 
 // Store
 import { useTenantStore } from "@/lib/store/tenants"
+import { useStore } from "@/lib/store"
 
 // Components
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DataTable } from "./data-table"
 import { columns } from "./columns"
 import { Badge } from "@/components/ui/badge"
+import { ROLES } from "@/lib/types"
+import { axios } from "@/lib/axios"
 
 export default function Tenants() {
   const searchParams = useSearchParams()
@@ -23,8 +26,10 @@ export default function Tenants() {
     totalTenants, 
     tenantCurrentPage, 
     tenantPageSize, 
-    fetchTenants
+    fetchTenants,
   } = useTenantStore()
+
+  const { user } = useStore()
   
   const [searchQuery, setSearchQuery] = useState("")
   const [roomSearchQuery, setRoomSearchQuery] = useState("")
@@ -71,6 +76,42 @@ export default function Tenants() {
   const handlePageSizeChange = (size: number) => {
     fetchTenants(1, size, searchQuery)
   }
+
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const exportTenants = async () => {
+    setIsDownloading(true);
+    try {
+      const response = await axios.get('/report/export-tenants', {
+        headers: {
+          Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          Authorization: `Bearer ${user?.token}`,
+        },
+        responseType: 'blob', // Handle binary data
+      });
+  
+      if (!response.data) {
+        throw new Error('Failed to generate report');
+      }
+  
+      const blob = response.data;
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tenants-report-${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
+  
+      toast.success('Report downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      toast.error('Failed to download report');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
   
   // Calculate pagination values (commented out as not currently used but may be needed later)
   // const pageIndex = tenantCurrentPage - 1
@@ -86,12 +127,23 @@ export default function Tenants() {
             {totalTenants} {totalTenants === 1 ? 'tenant' : 'tenants'}
           </Badge>
         </div>
-        <Link href="/dashboard/tenants/view?create=true">
-          <Button className="gap-2">
-            <PlusCircle className="h-4 w-4" />
-            Add Tenant
+        <div className="flex items-center gap-2">
+          <Button
+            data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN]}
+            onClick={() => {
+              exportTenants()
+            }}
+            disabled={isDownloading}
+          >
+            {isDownloading ? 'Downloading...' : 'Export to Excel'}
           </Button>
-        </Link>
+          <Link href="/dashboard/tenants/view?create=true">
+            <Button className="gap-2">
+              <PlusCircle className="h-4 w-4" />
+              Add Tenant
+            </Button>
+          </Link>
+        </div>
       </div>
 
       <p className="text-muted-foreground">
