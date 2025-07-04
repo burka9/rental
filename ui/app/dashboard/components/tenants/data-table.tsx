@@ -1,12 +1,18 @@
 "use client"
 
+import { useState } from "react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from "lucide-react"
 import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
   useReactTable,
+  getPaginationRowModel,
+  getSortedRowModel,
+  SortingState,
 } from "@tanstack/react-table"
 
+// UI Components
 import {
   Table,
   TableBody,
@@ -15,7 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -25,9 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { useState, useCallback, useEffect, useMemo } from "react"
-import { useTenantStore } from "@/lib/store/tenants"
-import { debounce } from "lodash"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -35,204 +37,253 @@ interface DataTableProps<TData, TValue> {
   totalItems: number
   pageSize: number
   currentPage: number
+  onPageChange?: (page: number) => void
+  onPageSizeChange?: (size: number) => void
+  onRoomSearch?: (roomName: string) => void
+  onSearch?: (query: string) => void
+  searchValue?: string
 }
 
-export function DataTable<TData extends { id: number; name: string; phone?: string; isShareholder?: boolean }, TValue>({
+export function DataTable<TData, TValue>({
   columns,
   data,
   totalItems,
   pageSize,
   currentPage,
+  onPageChange,
+  onPageSizeChange,
+  onRoomSearch,
+  onSearch,
+  searchValue = "",
 }: DataTableProps<TData, TValue>) {
-  const [globalFilter, setGlobalFilter] = useState("")
-  const [officeFilter, setOfficeFilter] = useState("")
-  const [shareholderFilter, setShareholderFilter] = useState<string>("all")
-  const [localPage, setLocalPage] = useState(currentPage)
-  const { fetchTenants } = useTenantStore()
+  const [sorting, setSorting] = useState<SortingState>([])
+  const pageIndex = currentPage - 1
+  const totalPages = Math.ceil(totalItems / pageSize) || 1
+  const canPreviousPage = pageIndex > 0
+  const canNextPage = pageIndex < totalPages - 1
 
-  const totalPages = Math.ceil(totalItems / pageSize)
+  // Handle page size change
+  const handlePageSizeChange = (value: string) => {
+    const newPageSize = Number(value)
+    onPageSizeChange?.(newPageSize)
+  }
 
-  // Debounced fetch function
-  const debouncedFetchTenants = useMemo(() => 
-    debounce((page: number, search: string, isShareholder: string, officeNumber: string) => {
-      fetchTenants(page, pageSize, search, isShareholder, officeNumber)
-    }, 300),
-    [fetchTenants, pageSize]
-  )
+  // Handle page change
+  const handlePageChange = (newPage: number) => {
+    onPageChange?.(newPage)
+  }
 
-  // Handle all fetch triggers in one place
-  const handleFetch = useCallback((page: number, search: string, isShareholder: string, officeNumber: string) => {
-    setLocalPage(page)
-    debouncedFetchTenants(page, search, isShareholder, officeNumber)
-  }, [debouncedFetchTenants])
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages = []
+    const maxVisiblePages = 5
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
+    let endPage = startPage + maxVisiblePages - 1
 
-  // Initial fetch
-  useEffect(() => {
-    handleFetch(localPage, globalFilter, shareholderFilter, officeFilter)
-  }, [handleFetch, localPage, globalFilter, shareholderFilter, officeFilter])
+    if (endPage > totalPages) {
+      endPage = totalPages
+      startPage = Math.max(1, endPage - maxVisiblePages + 1)
+    }
 
-  // Table setup
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i)
+    }
+
+    return pages
+  }
+
   const table = useReactTable({
     data,
     columns,
-    getCoreRowModel: getCoreRowModel(),
-    manualPagination: true,
     pageCount: totalPages,
+    state: {
+      sorting,
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
+    },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    manualPagination: true,
+    debugTable: process.env.NODE_ENV === 'development',
   })
 
-  const maxPagesToShow = 5;
+  const renderPagination = () => {
+    const pageNumbers = getPageNumbers()
 
-  const getPageRange = () => {
-    const half = Math.floor(maxPagesToShow / 2);
-    let start = Math.max(1, localPage - half);
-    const end = Math.min(totalPages, start + maxPagesToShow - 1);
+    return (
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
+        <div className="text-sm text-muted-foreground">
+          Showing {pageIndex * pageSize + 1} to {Math.min((pageIndex + 1) * pageSize, totalItems)} of {totalItems} entries
+        </div>
 
-    if (end - start < maxPagesToShow - 1) {
-      start = Math.max(1, end - maxPagesToShow + 1);
-    }
+        <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1">
+            <span className="text-sm font-medium">Rows per page</span>
+            <Select
+              value={pageSize.toString()}
+              onValueChange={handlePageSizeChange}
+            >
+              <SelectTrigger className="h-8 w-16">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 30, 40, 50].map((size) => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-    const pages: (number | string)[] = [];
-    if (start > 1) {
-      pages.push(1);
-      if (start > 2) pages.push("...");
-    }
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(1)}
+              disabled={!canPreviousPage}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={!canPreviousPage}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
 
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
+            {pageNumbers.map((page) => (
+              <Button
+                key={page}
+                variant={page === currentPage ? "default" : "outline"}
+                size="sm"
+                onClick={() => handlePageChange(page)}
+                className="h-8 w-8 p-0"
+              >
+                {page}
+              </Button>
+            ))}
 
-    if (end < totalPages) {
-      if (end < totalPages - 1) pages.push("...");
-      pages.push(totalPages);
-    }
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={!canNextPage}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={!canNextPage}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
-    return pages;
-  };
+  const handleRoomSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onRoomSearch?.(e.target.value)
+  }
 
-  const pageRange = getPageRange();
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onSearch?.(e.target.value)
+  }
 
   return (
-    <div className="flex flex-col gap-4 w-full">
-      {/* Search and Filter Controls */}
-      <div className="flex flex-col sm:flex-row items-center gap-4">
-        <Input
-          placeholder="Search by name or phone..."
-          value={globalFilter}
-          onChange={(e) => {
-            setGlobalFilter(e.target.value)
-            handleFetch(1, e.target.value, shareholderFilter, officeFilter)
-          }}
-          className="max-w-sm border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        <Input
-          placeholder="Search by Office"
-          value={officeFilter}
-          onChange={(e) => {
-            setOfficeFilter(e.target.value)
-            handleFetch(1, globalFilter, shareholderFilter, e.target.value)
-          }}
-          className="max-w-[150px] border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-        />
-        <Select
-          value={shareholderFilter}
-          onValueChange={(value) => {
-            setShareholderFilter(value)
-            handleFetch(1, globalFilter, value, officeFilter)
-          }}
-        >
-          <SelectTrigger className="w-[180px] border-gray-200 rounded-md shadow-sm transition-all focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-            <SelectValue placeholder="Filter by shareholder" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="true">Shareholders</SelectItem>
-            <SelectItem value="false">Non-Shareholders</SelectItem>
-          </SelectContent>
-        </Select>
+    <div className="space-y-4">
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Tenant Search */}
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search tenants..."
+            className="pl-9"
+            value={searchValue}
+            onChange={handleSearch}
+          />
+        </div>
+        
+        {/* Room Search */}
+        <div className="relative w-full sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by room name..."
+            className="pl-9"
+            onChange={handleRoomSearch}
+          />
+        </div>
       </div>
-
       {/* Table */}
-      <div className="rounded-md border border-gray-200 shadow-sm">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="text-gray-700">
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {data.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+      <div className="rounded-md border">
+        <div className="relative overflow-x-auto">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-gray-600">
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="hover:bg-muted/50 transition-colors"
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center text-muted-foreground"
+                  >
+                    No tenants found. Try adjusting your search or filters.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}
-      <div className="flex items-center justify-between space-x-2 py-4">
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleFetch(Math.max(localPage - 1, 1), globalFilter, shareholderFilter, officeFilter)}
-            disabled={localPage === 1}
-            className="bg-slate-800 text-white hover:bg-slate-800 hover:text-white"
-          >
-            Previous
-          </Button>
-          {pageRange.map((page, index) => (
-            <Button
-              key={index}
-              variant={page === localPage ? "default" : "outline"}
-              size="sm"
-              onClick={() => typeof page === "number" && handleFetch(page, globalFilter, shareholderFilter, officeFilter)}
-              disabled={typeof page !== "number"}
-              className={typeof page !== "number" ? "cursor-default" : ""}
-            >
-              {page}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleFetch(Math.min(localPage + 1, totalPages), globalFilter, shareholderFilter, officeFilter)}
-            disabled={localPage === totalPages}
-            className="bg-slate-800 text-white hover:bg-slate-800 hover:text-white"
-          >
-            Next
-          </Button>
-        </div>
-        <span className="text-sm text-gray-600">
-          Page {localPage} of {totalPages}
-        </span>
-      </div>
+      {renderPagination()}
     </div>
   )
 }

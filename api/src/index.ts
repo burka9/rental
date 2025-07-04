@@ -15,6 +15,7 @@ import { User } from "./entities/User.entity";
 import { hashSync } from "bcrypt";
 import { ROLES } from "./entities/User.entity";
 import { resolve } from "path";
+import { mkdirSync } from "fs";
 
 const app = express()
 app.use(express.json())
@@ -35,6 +36,11 @@ app.use(cors({
 
 // temporary
 app.use('/uploads', express.static(resolve(__dirname, '../uploads')))
+
+
+// mkdir -p ./reports
+mkdirSync(resolve(__dirname, '../reports'), { recursive: true })
+app.use('/reports', express.static(resolve(__dirname, '../reports')))
 
 
 
@@ -67,48 +73,20 @@ Database.initialize()
 
 		// init default admin
 		const userRepository = Database.getRepository(User)
-		return userRepository.create([
-			{
+
+		return Promise.all([
+			userRepository,
+			userRepository.findOneBy({ role: ROLES.SUPERADMIN }),
+		])
+	})
+	.then(([repo, admin]) => {
+		if (!admin) {
+			return repo.create({
 				phone: 'admin',
 				password: hashSync('admin', 10),
 				role: ROLES.SUPERADMIN
-			},
-			{
-				phone: 'b1',
-				password: hashSync('admin', 10),
-				role: ROLES.BUILDING_ADMIN,
-				buildingId: 1,
-			},
-			{
-				phone: 'b2',
-				password: hashSync('admin', 10),
-				role: ROLES.BUILDING_ADMIN,
-				buildingId: 2,
-			},
-			{
-				phone: 'b3',
-				password: hashSync('admin', 10),
-				role: ROLES.BUILDING_ADMIN,
-				buildingId: 3,
-			},
-			{
-				phone: 'finance',
-				password: hashSync('admin', 10),
-				role: ROLES.FINANCE_ADMIN
-			},
-			{
-				phone: 'board',
-				password: hashSync('admin', 10),
-				role: ROLES.BOARD_MEMBER
-			},
-		])
-	})
-	.then(async users => {
-		const userRepository = Database.getRepository(User)
-		
-		for await (const user of users) try {
-			await userRepository.save(user)
-		} catch {}
+			})
+		}
 	})
 	.then(() => console.log('done'))
 	.catch((err: Error) => {

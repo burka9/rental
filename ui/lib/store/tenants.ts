@@ -38,7 +38,7 @@ type StoreAction = {
   deletePayment: (id: number) => Promise<boolean>
   addFilesToLease: (id: number, data: FormData) => Promise<Lease | null>
   removeFile: (leaseId: number, filePath: string) => Promise<boolean>
-  terminateLease: (id: number) => Promise<boolean>
+  terminateLease: (id: number) => Promise<boolean>,
 }
 
 type Store = StoreState & StoreAction

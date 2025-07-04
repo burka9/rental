@@ -11,6 +11,7 @@ type StoreState = {
 	buildings: SuperBuilding[]
 	rooms: Room[]
 	banks: Bank[]
+
 }
 
 type StoreAction = {
@@ -49,7 +50,9 @@ export const usePropertyStore = create<Store>(set => ({
 				}
 			})
 
-			set({ buildings: res.data.data as SuperBuilding[] })
+			set({ 
+			buildings: res.data.data as SuperBuilding[]
+			})
 
 			return res.data.data as SuperBuilding[]
 		} catch(err) {

@@ -7,6 +7,8 @@ import { LateFeeType, PaymentType } from "../entities/Lease.entity";
 import { getRoom, getRooms, RoomRepository, updateRoom } from "../controller/room.controller";
 import { toGregorian } from "../lib/date-converter";
 import { In } from "typeorm";
+import { verifyToken, verifyUser } from "./auth.routes";
+import { exportTenantsToExcel } from "../controller/report.controller";
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -36,7 +38,7 @@ const upload = multer({
 export default function (): Router {
   const router = Router();
 
-  router.get("/", async (req, res) => {
+  router.get("/", verifyToken, verifyUser, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1; // Default to page 1
       const limit = parseInt(req.query.limit as string) || 10; // Default to 10 rows per page
@@ -45,13 +47,16 @@ export default function (): Router {
       const officeNumber = (req.query.officeNumber as string) || "all"; // Filter by office
       const skip = (page - 1) * limit;
 
+      const filters = res.locals.filter
+
       // Call getTenant with all parameters
       const [tenants, total] = await getTenant({ 
         skip, 
         take: limit, 
         search, 
         isShareholder: isShareholder === "all" ? undefined : isShareholder,
-        officeNumber
+        officeNumber,
+        filters
       });
 
       res.json({
@@ -77,7 +82,7 @@ export default function (): Router {
   });
 
   // Other endpoints remain unchanged
-  router.get("/:id", async (req, res) => {
+  router.get("/:id", verifyToken, verifyUser, async (req, res) => {
     const tenant = await getSingleTenant({ id: Number(req.params.id) });
     res.json({
       success: true,
@@ -86,7 +91,7 @@ export default function (): Router {
     });
   });
 
-  router.post("/", upload.single("agreementFile"), async (req: any, res: any) => {
+  router.post("/", verifyToken, verifyUser, upload.single("agreementFile"), async (req: any, res: any) => {
     const body = req.body;
     const file = req.file;
     
@@ -172,7 +177,7 @@ export default function (): Router {
     });
   });
 
-  router.put("/:id", upload.single("agreementFile"), async (req, res) => {
+  router.put("/:id", verifyToken, verifyUser, upload.single("agreementFile"), async (req, res) => {
     const tenant = await updateTenant(Number(req.params.id), req.body);
     res.json({
       success: true,
@@ -181,13 +186,30 @@ export default function (): Router {
     });
   });
 
-  router.delete("/:id", async (req, res) => {
+  router.delete("/:id", verifyToken, verifyUser, async (req, res) => {
     const tenant = await deleteTenant(Number(req.params.id));
     res.json({
       success: true,
       message: "Tenant deleted successfully",
       data: tenant,
     });
+  });
+
+  // router.get("/export", verifyToken, verifyUser, async (req, res) => {
+  router.get("/export", async (req, res) => {
+    try {
+      const buffer = await exportTenantsToExcel();
+  
+      // Set headers for Excel file download
+      res.setHeader('Content-Disposition', 'attachment; filename=tenants-report.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  
+      // Send the buffer
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error exporting tenants:', error);
+      res.status(500).json({ success: false, message: 'Failed to export tenants' });
+    }
   });
 
   return router;

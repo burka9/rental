@@ -1,14 +1,17 @@
 import { Router } from "express"
 import { createRoom, deleteRoom, getRoom, getRooms, updateRoom } from "../controller/room.controller"
 import { Room } from "../entities/Room.entity"
+import { verifyToken, verifyUser } from "./auth.routes"
+
 export default function(): Router {
 	const router = Router()
 
-	router.get("/", async (req, res) => {
+	router.get("/", verifyToken, verifyUser, async (req, res) => {
 		const ids = req.query.ids ? (req.query.ids as string).split(",").map(Number) : undefined
 
-		const rooms = await getRooms(ids)
-		console.log(ids)
+		const filter = res.locals.filter
+
+		const rooms = await getRooms(filter, ids)
 		
 		res.json({
 			success: true,
@@ -17,7 +20,7 @@ export default function(): Router {
 		})
 	})
 
-	router.get("/:id", async (req, res) => {
+	router.get("/:id", verifyToken, verifyUser, async (req, res) => {
 		const room = await getRoom(Number(req.params.id))
 
 		res.json({
@@ -27,7 +30,7 @@ export default function(): Router {
 		})
 	})
 
-	router.post("/", async (req, res) => {
+	router.post("/", verifyToken, verifyUser, async (req, res) => {
 		const body = req.body as Partial<Room>
 
 		const newRoom = await createRoom(body)
@@ -39,7 +42,7 @@ export default function(): Router {
 		})
 	})
 
-	router.put("/:id", async (req, res) => {
+	router.put("/:id", verifyToken, verifyUser, async (req, res) => {
 		const body = req.body as Partial<Room>
 
 		const updatedRoom = await updateRoom(Number(req.params.id), body)
@@ -51,7 +54,7 @@ export default function(): Router {
 		})
 	})
 
-	router.delete("/:id", async (req, res) => {
+	router.delete("/:id", verifyToken, verifyUser, async (req, res) => {
 		const deletedRoom = await deleteRoom(Number(req.params.id))
 
 		res.json({

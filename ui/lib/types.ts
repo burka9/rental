@@ -4,8 +4,10 @@ export type DashboardProps = any
 
 export type User = {
   id: number;
+	name: string;
   phone: string;
   role: ROLES;
+	password?: string
   buildingId: number | null;
   isActive: boolean;
   createdAt: string;
@@ -25,6 +27,7 @@ export enum ROLES {
 export type CurrentUser = {
 	buildingId: string | number | null
 	id: number | string
+	name: string
 	phone: string
 	role: string
 	token: string
@@ -137,6 +140,13 @@ export type BasicReport = {
 	overduePayments: {
 		totalTenants: number
 		totalAmount: number
+		payments: {
+			leaseId: string
+			tenantId: string
+			tenantName: string
+			dueDate: Date
+			paymentAmount: number
+		}[]
 	}
 	upcomingPayment: {
 		tenantId: string

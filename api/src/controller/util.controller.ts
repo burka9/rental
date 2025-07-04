@@ -11,18 +11,32 @@ export const BuildingRepository = Database.getRepository(Building)
 export const RoomRepository = Database.getRepository(Room)
 export const BankRepository = Database.getRepository(Bank)
 export const UserRepository = Database.getRepository(User)
-export const LeaseRepository = Database.getRepository(Tenant)
 
 export async function getOverview({ buildingId }: UserFilter) {
-	const tenants = await TenantRepository.createQueryBuilder("tenant")
-		.leftJoinAndSelect("tenant.leases", "leases")
-		.leftJoinAndSelect("rooms", "rooms", "FIND_IN_SET(rooms.id, leases.roomIds)")
-		.andWhere("rooms.buildingId = :buildingId", {
-			buildingId,
+	let tenants = 0
+	
+	if (buildingId) {
+		tenants = await TenantRepository.createQueryBuilder("tenant")
+			.leftJoinAndSelect("tenant.leases", "leases")
+			.leftJoinAndSelect("rooms", "rooms", "FIND_IN_SET(rooms.id, leases.roomIds)")
+			.andWhere("rooms.buildingId = :buildingId", {
+				buildingId,
+		})
+		.andWhere("leases.active = :active", {
+			active: true,
 		})
 		.getCount()
-	const rooms = await RoomRepository.countBy({ buildingId: buildingId })
-	const vacantRooms = await RoomRepository.countBy({ occupied: false, buildingId: buildingId })
+	} else {
+		tenants = await TenantRepository.createQueryBuilder("tenant")
+			.leftJoinAndSelect("tenant.leases", "leases")
+			.leftJoinAndSelect("rooms", "rooms", "FIND_IN_SET(rooms.id, leases.roomIds)")
+			.andWhere("leases.active = :active", {
+				active: true,
+			})
+			.getCount()
+	}
+	const rooms = await RoomRepository.countBy({ buildingId })
+	const vacantRooms = await RoomRepository.countBy({ occupied: false, buildingId })
 	const buildings = await BuildingRepository.countBy({ id: buildingId })
 	const users = await UserRepository.count()
 	const banks = await BankRepository.count()
@@ -36,7 +50,7 @@ export async function getOverview({ buildingId }: UserFilter) {
 			active: true
 		})
 		.getCount()
-
+		
 	return {
 		tenants,
 		rooms,

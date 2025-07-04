@@ -1,9 +1,40 @@
 'use client'
 import { Bank } from "@/lib/types"
 import { ColumnDef } from "@tanstack/react-table"
-import { Button } from "@/components/ui/button"
-import { PencilIcon, TrashIcon } from "lucide-react"
-import Link from "next/link"
+import { ColumnActions } from "@/components/columnAction"
+import { usePropertyStore } from "@/lib/store/property"
+import { ROLES } from "@/lib/types"
+
+
+const BankActions = ({ bank }: { bank: Bank }) => {
+	const { deleteBank } = usePropertyStore();
+
+	const handleDelete = async () => {
+		try {
+			await deleteBank(bank.id ?? 0)
+			return true
+		} catch {
+			return false
+		}
+	};
+
+	return <ColumnActions
+			removeAction={handleDelete}
+			item={{
+				item: bank,
+				name: "Bank",
+				link: {
+					view: `/dashboard/banks/view?id=${bank.id ?? 0}`,
+					edit: `/dashboard/banks/view?id=${bank.id ?? 0}&edit=true`,
+				},
+				role: {
+					view: Object.values(ROLES),
+					edit: [ROLES.SUPERADMIN, ROLES.ADMIN],
+					remove: [ROLES.SUPERADMIN],
+				}
+			}}
+		/>
+};
 
 export const columns: ColumnDef<Bank>[] = [
 	{
@@ -24,36 +55,6 @@ export const columns: ColumnDef<Bank>[] = [
 	},
 	{
 		header: "Actions",
-		cell: ({ row }) => {
-			return (
-				<div className="flex gap-2">
-					<Link href={`/dashboard/banks/view?id=${row.original.id}`}>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-8 w-full"
-							>
-							View Room
-						</Button>
-					</Link>
-					<Link href={`/dashboard/banks/view?id=${row.original.id}&edit=true`}>
-						<Button
-							variant="outline"
-							size="sm"
-							className="h-8 w-full"
-						>
-							<PencilIcon /> Edit
-						</Button>
-					</Link>
-					<Button
-            variant="outline"
-            size="sm"
-            onClick={() => {}}
-            >
-            <TrashIcon /> Delete
-          </Button>
-        </div>
-			);
-		},
+		cell: ({ row }) => <BankActions bank={row.original} />
 	}
 ]

@@ -17,7 +17,6 @@ type StoreAction = {
   createUser: (user: Partial<User>) => Promise<boolean>
   updateUser: (user: Partial<User>) => Promise<User | null>
   deleteUser: (id: number) => Promise<boolean>
-  setLoading: (loading: boolean) => void
 }
 
 type Store = StoreState & StoreAction
@@ -40,17 +39,17 @@ export const useUserStore = create<Store>((set) => ({
         ...(search && { search }),
       })
 
-      const res = await axios.get(`/users?${params.toString()}`, {
+      const res = await axios.get(`users?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${user?.token}`,
         },
       })
 
       set({
-        users: res.data.data,
-        totalUsers: res.data.total,
-        currentPage: page,
-        pageSize: limit,
+        users: res.data.data.users,
+        totalUsers: res.data.data.pagination.total,
+        currentPage: res.data.data.pagination.page,
+        pageSize: res.data.data.pagination.limit,
       })
 
       return res.data.data
@@ -67,7 +66,7 @@ export const useUserStore = create<Store>((set) => ({
     set({ loading: true })
 
     try {
-      const res = await axios.get(`/users/${id}`, {
+      const res = await axios.get(`users/${id}`, {
         headers: {
           Authorization: `Bearer ${user?.token}`,
         },
@@ -110,7 +109,7 @@ export const useUserStore = create<Store>((set) => ({
 
     try {
       const res = await axios.put(
-        `/users/${userData.id}`,
+        `users/${userData.id}`,
         { ...userData },
         {
           headers: {
@@ -132,7 +131,7 @@ export const useUserStore = create<Store>((set) => ({
     set({ loading: true })
 
     try {
-      await axios.delete(`/users/${id}`, {
+      await axios.delete(`users/${id}`, {
         headers: {
           Authorization: `Bearer ${user?.token}`,
         },
@@ -145,6 +144,4 @@ export const useUserStore = create<Store>((set) => ({
       set({ loading: false })
     }
   },
-
-  setLoading: (loading: boolean) => set({ loading }),
 }))
