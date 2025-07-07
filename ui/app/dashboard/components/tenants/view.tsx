@@ -128,9 +128,10 @@ const formSchema = z.object({
 export default function ViewTenant() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useStore();
   
   // Initialize stores
-  useStore(); // Used for role-based access control via data-roles
+  // useStore(); // Used for role-based access control via data-roles
   const { fetchTenants, fetchTenant, createTenant, updateTenant, deleteTenant } = useTenantStore();
   const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
   
@@ -285,10 +286,26 @@ export default function ViewTenant() {
     setEditing(searchParams.get("edit") === "true");
   }, [searchParams]);
 
-  const handleSubmit = async (values: z.infer<typeof formSchema>): Promise<void> => {
-    setIsSubmitting(true);
+  const handleSubmit = async (): Promise<void> => {
+    // check user role
+    if (user?.role !== ROLES.SUPERADMIN && user?.role !== ROLES.ADMIN) {
+      toast.error("You do not have permission to perform this action");
+      return;
+    }
     
+    setIsSubmitting(true);
+
+    await form.trigger()
+
     try {
+      if (form.formState.isValid) {
+        console.log('valid')
+      } else {
+        console.log('invalid')
+        return
+      }
+    
+      const values = form.getValues();
       if (creating) {
         const formData = new FormData();
         formData.append("name", values.name);
@@ -374,7 +391,7 @@ const getDaysInMonth = (monthIndex: number | undefined, year: number | undefined
 };
 
 // Show loading state
-if (isLoading) {
+if (!user || isLoading) {
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -537,6 +554,7 @@ return (
             type="submit"
             disabled={isSubmitting}
             data-roles={[ROLES.SUPERADMIN, ROLES.ADMIN, ROLES.BUILDING_ADMIN]}
+            onClick={() => handleSubmit()}
           >
             {isSubmitting ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1178,7 +1196,7 @@ return (
                             </FormItem>
                           )}
                         /> */}
-                        <FormField
+                        {/* <FormField
                           control={form.control}
                           name="lateFee"
                           render={({ field }) => (
@@ -1196,7 +1214,7 @@ return (
                               <FormMessage className="text-red-500 text-sm" />
                             </FormItem>
                           )}
-                        />
+                        /> */}
                         {/* <FormField
                           control={form.control}
                           name="initialPaymentAmount"

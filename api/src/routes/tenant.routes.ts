@@ -132,7 +132,7 @@ export default function (): Router {
     const startDateEthiopian = toGregorian([Number(startDate.year), Number(startDate.month), Number(startDate.day)]);
     const endDateEthiopian = toGregorian([Number(endDate.year), Number(endDate.month), Number(endDate.day)]);
     
-    console.log(req.body)
+    console.log(JSON.parse(body.paymentAmountPerMonth))
     
     const leaseBody = {
       tenant,
@@ -143,19 +143,16 @@ export default function (): Router {
       paymentAmountPerMonth: JSON.parse(body.paymentAmountPerMonth),
       deposit: isNaN(Number(body.deposit)) ? 0 : Number(body.deposit),
       lateFeeType: LateFeeType.PERCENTAGE,
-      // lateFeeType: body.lateFeeType,
-      lateFee: isNaN(Number(body.lateFee)) ? 0 : Number(body.lateFee),
-      // initialPayment: {
-        // amount: Number(body.initialPaymentAmount),
-        // paymentDate: body.initialPaymentDate,
-      // },
+      lateFee: 1,
+      initialPayment: {
+        amount: Number(body.initialPaymentAmount),
+        paymentDate: body.initialPaymentDate,
+      },
       lateFeeGracePeriodInDays: 0,
       active: true,
       paymentType: PaymentType.PREPAID,
       files: file ? [{ filename: file.filename || "", path: file.path || "" }] : [],
     }
-
-    console.log(leaseBody)
     
     const lease = await createLease(leaseBody);
 
