@@ -31,7 +31,7 @@ type StoreAction = {
   updateLease: (lease: Partial<Lease>) => Promise<Lease | null>
   deleteLease: (id: number) => Promise<boolean>
   fetchBasicReport: () => Promise<BasicReport>
-  fetchPayments: (page?: number, limit?: number, search?: string, isVerified?: string) => Promise<Payment[]>
+  fetchPayments: (page?: number, limit?: number, search?: string, isVerified?: string, startDate?: string, endDate?: string) => Promise<Payment[]>
   fetchPayment: (id: number) => Promise<Payment | null>
   createPayment: (payment: Partial<Payment>) => Promise<boolean>
   updatePayment: (payment: Partial<Payment>) => Promise<Payment | null>
@@ -298,8 +298,8 @@ export const useTenantStore = create<Store>((set) => ({
     }
   },
 
-  async fetchPayments(page = 1, limit = 10, search = "", isVerified = "all") {
-    console.log('fetch payments: ', search, isVerified)
+  async fetchPayments(page = 1, limit = 10, search = "", isVerified = "all", startDate = "", endDate = "") {
+    console.log('fetch payments: ', { search, isVerified, startDate, endDate })
     
     const { user } = useStore.getState()
 
@@ -313,6 +313,8 @@ export const useTenantStore = create<Store>((set) => ({
           limit,
           search: search || undefined,
           isVerified: isVerified !== "all" ? isVerified : undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined
         },
       })
 

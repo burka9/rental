@@ -11,16 +11,20 @@ export default function(): Router {
 		try {
 			const page = parseInt(req.query.page as string) || 1; // Default to page 1
 			const limit = parseInt(req.query.limit as string) || 10; // Default to 10 rows per page
-			const search = (req.query.search as string) || ""; // Search term for name or phone
-			const isVerified = (req.query.isVerified as string) || "all"; // Filter by shareholder status
+			const search = (req.query.search as string) || ""; // Search term for reference number
+			const isVerified = (req.query.isVerified as string) || "all"; // Filter by verification status
+			const startDate = req.query.startDate as string || "";
+			const endDate = req.query.endDate as string || "";
 			const skip = (page - 1) * limit;
 
-			// Call getTenant with all parameters
+			// Call getPayments with all parameters
 			const [payments, total] = await getPayments({ 
 				skip, 
 				take: limit, 
 				search, 
-				isVerified: isVerified === "all" ? undefined : isVerified 
+				isVerified: isVerified === "all" ? undefined : isVerified,
+				startDate: startDate || undefined,
+				endDate: endDate || undefined
 			});
 
 			res.json({

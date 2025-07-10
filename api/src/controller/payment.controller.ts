@@ -13,33 +13,55 @@ export async function getPayments({
     skip = 0,
     take = 10,
     search = "",
-    isVerified
+    isVerified,
+    startDate,
+    endDate
   }: {
     skip?: number;
     take?: number;
     search?: string;
     isVerified?: string; // "true", "false", or undefined
+    startDate?: string;
+    endDate?: string;
   }): Promise<[Payment[], number]> {
     const query = PaymentRepository.createQueryBuilder("payment")
-        .leftJoinAndSelect("payment.bank", "bank")
+      .leftJoinAndSelect("payment.bank", "bank");
 
-    // Apply search filter on name or phone
+    // Apply search filter on reference number
     if (search) {
-    //   query.where("payment.referenceNumber LIKE :search OR tenant.phone LIKE :search", { 
-      query.where("payment.referenceNumber LIKE :search", { 
+      query.andWhere("payment.referenceNumber LIKE :search", { 
         search: `%${search}%` 
       });
     }
   
-    // Apply shareholder filter
+    // Apply verification filter
     if (isVerified === "true" || isVerified === "false") {
-      query.andWhere("tenant.isVerified = :isVerified", { 
+      query.andWhere("payment.isVerified = :isVerified", { 
         isVerified: isVerified === "true" 
       });
     }
+
+    // Apply date range filter
+    if (startDate) {
+      query.andWhere("payment.paymentDate >= :startDate", { 
+        startDate: new Date(startDate) 
+      });
+    }
+    
+    if (endDate) {
+      // Set end of day for end date
+      const endOfDay = new Date(endDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      query.andWhere("payment.paymentDate <= :endDate", { 
+        endDate: endOfDay 
+      });
+    }
   
-    // Apply pagination
-    query.skip(skip).take(take);
+    // Apply pagination and order by payment date descending
+    query
+      .orderBy("payment.paymentDate", "DESC")
+      .skip(skip)
+      .take(take);
   
     // Execute query and return results with total count
     return query.getManyAndCount();
