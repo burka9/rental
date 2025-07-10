@@ -78,10 +78,13 @@ export function DataTable<TData extends { id: number; name: string; phone?: stri
     debouncedFetchPayments(page, search, isVerified, startDate, endDate)
   }, [debouncedFetchPayments])
 
-  // Handle date range change
+  // Handle date range change with proper type safety
   const handleDateRangeChange = (range: DateRange | undefined) => {
-    setDateRange(range)
-    handleFetch(1, globalFilter, verifiedFilter, range)
+    // Ensure we're only handling DateRange objects, not form events
+    if (range && 'from' in range) {
+      setDateRange(range)
+      handleFetch(1, globalFilter, verifiedFilter, range)
+    }
   }
 
   // Initial fetch with default date range
@@ -140,7 +143,7 @@ export function DataTable<TData extends { id: number; name: string; phone?: stri
           <div className="w-[250px]">
             <DateRangePicker
               value={dateRange}
-              onChange={handleDateRangeChange}
+              onChange={(range) => handleDateRangeChange(range as DateRange | undefined)}
             />
           </div>
           {dateRange && (
