@@ -18,6 +18,7 @@ import { Lease, Payment, Bank, Tenant, Room } from "@/lib/types";
 import { axios } from "@/lib/axios";
 import { cn } from "@/lib/utils";
 import { toEthiopian } from '@/lib/date-converter';
+import { usePropertyStore } from "@/lib/store/property";
 
 // Ethiopian month names
 const monthNames = [
@@ -66,6 +67,17 @@ export default function VerifyPayment() {
     },
   });
 
+  const { fetchBuildings, buildings } = usePropertyStore();
+  
+  const getBuildingName = (room: Room) => {
+    return buildings.find((building: any) => building.id === room.buildingId)?.name;
+  };
+
+  useEffect(() => {
+    fetchBuildings();
+  }, [fetchBuildings]);
+
+  
   // Fetch payment details
   useEffect(() => {
     const id = Number(searchParams.get("id"));
@@ -241,7 +253,7 @@ export default function VerifyPayment() {
                   <tbody>
                     {rooms.map((room) => (
                       <tr key={room.id} className="bg-white border-b">
-                        <td className="px-6 py-4">{room.id}</td>
+                        <td className="px-6 py-4">{getBuildingName(room)}</td>
                         <td className="px-6 py-4">{room.name}</td>
                         <td className="px-6 py-4">{room.floorNumber}</td>
                         <td className="px-6 py-4">{room.sizeInSquareMeters || "N/A"}</td>
