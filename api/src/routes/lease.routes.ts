@@ -1,8 +1,9 @@
 import { Router } from 'express'
-import { getLease, createLease, updateLease, getLeasesByTenant, deleteLease, getActiveLeases, LeaseRepository } from '../controller/lease.controller'
+import { getLease, createLease, updateLease, getLeasesByTenant, deleteLease, getActiveLeases, LeaseRepository, generatePaymentSchedule, regeneratePaymentSchedule, resetAndReconcileSchedules } from '../controller/lease.controller'
 import { upload } from '../upload'
 import { Lease } from '../entities/Lease.entity'
 import { updateRoom } from '../controller/room.controller'
+import { PaymentScheduleRepository, reconcilePaymentsWithSchedules } from '../controller/payment.controller'
 
 export default function(): Router {
     const router = Router()
@@ -43,24 +44,127 @@ export default function(): Router {
         }
     })
 
+    // dev
+    router.post('/regenerate/:id', async (req, res) => {
+        try {
+            const schedule = await regeneratePaymentSchedule(parseInt(req.params.id))
+            
+            res.json({
+                success: true,
+                message: "Payment schedule regenerated successfully",
+                data: schedule
+            })
+        } catch (error) {
+            res.status(400).json({ error: (error as Error).message })
+        }
+    })
+    // dev
+
+    router.post('/regenerate-all', async (req, res) => {
+        try {
+            // Prevent timeout issues
+            req.setTimeout(0);
+        
+            const leaseIds = await LeaseRepository
+                .createQueryBuilder("lease")
+                .select("lease.id")
+                .where("lease.active = true")
+                .getRawMany(); // get just ids, not full objects
+        
+            const failedLeases: number[] = [];
+        
+            for (const { lease_id } of leaseIds) {
+                try {
+                    await regeneratePaymentSchedule(lease_id);
+                } catch (err: any) {
+                    console.error(`Failed lease ${lease_id}:`, err?.message || err);
+                    failedLeases.push(lease_id);
+                }
+        
+                // hint to GC by avoiding memory retention
+                global.gc?.(); // only if --expose-gc is enabled (optional)
+            }
+        
+            res.json({
+                success: true,
+                message: "Payment schedules regenerated successfully",
+                failedLeases
+            });
+        } catch (err: any) {
+            res.status(400).json({ error: err.message });
+        }
+    })
+
+    router.delete('/cut-schedules', async (req, res) => {
+        try {
+            const { cutoffDate } = req.body;
+    
+            if (!cutoffDate) {
+                res.status(400).json({ error: "cutoffDate is required" });
+                return
+            }
+    
+            const leases = await LeaseRepository
+                .createQueryBuilder("lease")
+                .select("lease.id")
+                .where("lease.active = true")
+                .getRawMany();
+    
+            const failedLeases: number[] = [];
+    
+            for (const { lease_id } of leases) {
+                try {
+                    await resetAndReconcileSchedules(lease_id, new Date(cutoffDate));
+                } catch (err: any) {
+                    console.error(`Lease ${lease_id} failed:`, err.message || err);
+                    failedLeases.push(lease_id);
+                }
+            }
+    
+            res.json({
+                success: true,
+                message: "Schedules cut successfully",
+                cutoffDate,
+                total: leases.length,
+                failedLeases
+            });
+    
+        } catch (error) {
+            res.status(400).json({ error: (error as Error).message });
+        }
+    });
+    
+    
     router.post('/terminate/:id', async (req, res) => {
         try {
-            const lease = await updateLease(parseInt(req.params.id), { active: false })
+            // check if lease is active
+            const lease = await LeaseRepository.findOne({ where: { id: parseInt(req.params.id) } })
+            
+            if (!lease || !lease.active) {
+                res.status(400).json({ error: "Lease is not active" })
+                return
+            }
 
-            if (!lease) {
+            // update lease
+            const updatedLease = await updateLease(parseInt(req.params.id), { active: false })
+
+            if (!updatedLease) {
                 res.status(404).json({ error: "Lease not found" })
                 return
             }
             
             // make room available
-            lease.roomIds.forEach(roomId => {
+            updatedLease.roomIds.forEach((roomId: number) => {
                 updateRoom(roomId, { occupied: false })
             })
             
+            // remove payment schedules
+            await PaymentScheduleRepository.delete({ leaseId: updatedLease.id })
+
             res.json({
                 success: true,
                 message: "Lease terminated successfully",
-                data: lease
+                data: updatedLease
             })
         } catch (error) {
             res.status(400).json({ error: (error as Error).message })

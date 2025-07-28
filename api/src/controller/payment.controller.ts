@@ -4,6 +4,7 @@ import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
 import { In, LessThan } from "typeorm"
 import { Room } from "../entities/Room.entity"
 import logger from "../lib/logger"
+import { Lease } from "../entities/Lease.entity"
 
 export const PaymentRepository = Database.getRepository(Payment)
 export const PaymentScheduleRepository = Database.getRepository(PaymentSchedule)
@@ -249,4 +250,56 @@ export async function markPaidUntilNow(leaseId: number) {
         where: { leaseId },
         relations: ['lease']
     })
+}
+
+export async function reconcilePaymentsWithSchedules(lease: Lease) {
+    // Get all schedules for the lease
+    const schedules = await PaymentScheduleRepository.find({
+        where: { leaseId: lease.id },
+        relations: ['lease'],
+    });
+
+    // Reset all schedule payment info first
+    for (const schedule of schedules) {
+        schedule.paidAmount = 0;
+        schedule.paymentDate = undefined;
+        await PaymentScheduleRepository.save(schedule);
+    }
+
+    // Get all verified payments for the lease
+    const payments = await PaymentRepository.find({
+        where: { leaseId: lease.id, isVerified: true },
+        order: { paymentDate: 'ASC' }, // oldest payments first
+        relations: ['lease'],
+    });
+
+    // Sort schedules by due date ascending
+    const sortedSchedules = schedules.sort(
+        (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+    );
+
+    for (const payment of payments) {
+        let remainingAmount = payment.paidAmount;
+
+        for (const schedule of sortedSchedules) {
+            if (remainingAmount <= 0) break;
+
+            const alreadyPaid = schedule.paidAmount || 0;
+            const due = schedule.payableAmount - alreadyPaid;
+
+            if (due <= 0) continue;
+
+            const amountToApply = Math.min(remainingAmount, due);
+            schedule.paidAmount = alreadyPaid + amountToApply;
+            remainingAmount -= amountToApply;
+
+            if (schedule.paidAmount === schedule.payableAmount) {
+                schedule.paymentDate = payment.paymentDate;
+            }
+
+            await PaymentScheduleRepository.save(schedule);
+        }
+    }
+
+    return sortedSchedules;
 }
