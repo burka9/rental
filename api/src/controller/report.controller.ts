@@ -10,7 +10,7 @@ import { Lease } from '../entities/Lease.entity';
 import { notoEthiopicBase64 } from "./NotoEthiopicBase64";
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
-import { toEthiopian } from '../lib/date-converter';
+import { toEthiopianDateString } from '../lib/date-converter';
 
 declare module 'jspdf' {
   interface jsPDF {
@@ -440,27 +440,6 @@ export function tempPDF(data: Data): string {
   return "reports/SidamoTeraCommercialCenter.pdf";
 }
 
-
-export const ethiopianMonths = [
-  "መስከረም", // Meskerem (Month 1)
-  "ጥቅምት",  // Tikimt (Month 2)
-  "ህዳር",   // Hidar (Month 3)
-  "ታህሳስ",  // Tahsas (Month 4)
-  "ጥር",     // Tir (Month 5)
-  "የካቲት",  // Yekatit (Month 6)
-  "መጋቢት",  // Megabit (Month 7)
-  "ሚያዝያ",  // Miazia (Month 8)
-  "ግንቦት",  // Ginbot (Month 9)
-  "ሰኔ",     // Sene (Month 10)
-  "ሐምሌ",    // Hamle (Month 11)
-  "ነሐሴ",    // Nehase (Month 12)
-  "ጳጉሜ"    // Pagume (Month 13)
-];
-export function toEthiopianDateString(_date: Date) {
-  const [year, month, date] = toEthiopian(_date.getFullYear(), _date.getMonth() + 1, _date.getDate())
-
-  return `${year} ${ethiopianMonths[month - 1]} ${date+1}`
-}
 
 function addIntro(doc: jsPDF, yPos: number) {
   const today = toEthiopianDateString(new Date());

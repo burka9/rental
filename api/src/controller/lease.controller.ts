@@ -2,7 +2,6 @@ import { addMonths, isAfter, isBefore } from "date-fns"
 import { Database } from "../db"
 import { Lease } from "../entities/Lease.entity"
 import { PaymentSchedule } from "../entities/PaymentSchedule.entity"
-import { toEthiopian, toGregorian } from "../lib/date-converter"
 import { GDate, EthDate } from "ethiopian-gregorian-date-converter"
 import { reconcilePaymentsWithSchedules } from "./payment.controller"
 

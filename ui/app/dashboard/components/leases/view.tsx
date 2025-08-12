@@ -20,13 +20,14 @@ import { DataTable } from "./payment-schedule/data-table";
 import { DataTable as RoomsDataTable } from "./roomsDataTable";
 import { columns as roomsColumn } from "./roomsColumn";
 import { columns } from "./payment-schedule/columns";
-import { toEthiopian, toGregorian } from '@/lib/date-converter';
 import { usePropertyStore } from "@/lib/store/property";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { cn, toEthiopianDateString } from "@/lib/utils";
 import { baseURL } from "@/lib/axios";
 import { Badge } from "@/components/ui/badge";
 import { LeaseLoading } from "./loading";
+import { EthDate, GDate } from "ethiopian-gregorian-date-converter";
+import { useStore } from "@/lib/store";
 
 // Ethiopian month names
 const monthNames = [
@@ -76,6 +77,7 @@ export default function ViewLease() {
 
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useStore()
   const { fetchLease, createLease, updateLease, terminateLease, tenants, fetchTenants, addFilesToLease, removeFile } = useTenantStore();
   const { buildings, fetchBuildings, rooms, fetchRooms } = usePropertyStore();
 
@@ -162,10 +164,11 @@ export default function ViewLease() {
 
         const startDateValue = data.startDate && !isNaN(new Date(data.startDate).getTime())
           ? (() => {
-              const gregDate = new Date(data.startDate);
+              // const gregDate = new Date(data.startDate);
+              const gregDate = new GDate(new Date(data.startDate).toDateString())
               try {
-                const [ethYear, ethMonth, ethDay] = toEthiopian(gregDate.getFullYear(), gregDate.getMonth() + 1, gregDate.getDate());
-                return [{ year: ethYear, month: ethMonth, day: ethDay }];
+                const ethDate = gregDate.toEth()
+                return [{ year: ethDate.year, month: ethDate.month, day: ethDate.day }];
               } catch (error) {
                 console.error("Error converting startDate:", error);
                 return [{ day: undefined, month: undefined, year: undefined }];
@@ -175,10 +178,13 @@ export default function ViewLease() {
 
         const endDateValue = data.endDate && !isNaN(new Date(data.endDate).getTime())
           ? (() => {
-              const gregDate = new Date(data.endDate);
+              // const gregDate = new Date(data.endDate);
+              const gregDate = new GDate(new Date(data.endDate).toDateString())
               try {
-                const [ethYear, ethMonth, ethDay] = toEthiopian(gregDate.getFullYear(), gregDate.getMonth() + 1, gregDate.getDate());
-                return [{ year: ethYear, month: ethMonth, day: ethDay }];
+                // const [ethYear, ethMonth, ethDay] = toEthiopian(gregDate.getFullYear(), gregDate.getMonth() + 1, gregDate.getDate());
+                // return [{ year: ethYear, month: ethMonth, day: ethDay }];
+                const ethDate = gregDate.toEth()
+                return [{ year: ethDate.year, month: ethDate.month, day: ethDate.day }];
               } catch (error) {
                 console.error("Error converting endDate:", error);
                 return [{ day: undefined, month: undefined, year: undefined }];
@@ -257,8 +263,10 @@ export default function ViewLease() {
     const startDate = values.startDate[0].year && values.startDate[0].month && values.startDate[0].day
       ? (() => {
           try {
-            const [gregYear, gregMonth, gregDay] = toGregorian(values.startDate[0].year, values.startDate[0].month, values.startDate[0].day);
-            return new Date(gregYear, gregMonth - 1, gregDay);
+            // const [gregYear, gregMonth, gregDay] = toGregorian(values.startDate[0].year, values.startDate[0].month, values.startDate[0].day);
+            const ethDate = new EthDate(values.startDate[0].year, values.startDate[0].month, values.startDate[0].day)
+            // return new Date(gregYear, gregMonth - 1, gregDay);
+            return ethDate.toGreg()
           } catch (error) {
             console.error("Error converting startDate:", error);
             return undefined;
@@ -269,8 +277,10 @@ export default function ViewLease() {
     const endDate = values.endDate[0].year && values.endDate[0].month && values.endDate[0].day
       ? (() => {
           try {
-            const [gregYear, gregMonth, gregDay] = toGregorian(values.endDate[0].year, values.endDate[0].month, values.endDate[0].day);
-            return new Date(gregYear, gregMonth - 1, gregDay);
+            // const [gregYear, gregMonth, gregDay] = toGregorian(values.endDate[0].year, values.endDate[0].month, values.endDate[0].day);
+            const ethDate = new EthDate(values.endDate[0].year, values.endDate[0].month, values.endDate[0].day)
+            // return new Date(gregYear, gregMonth - 1, gregDay);
+            return ethDate.toGreg()
           } catch (error) {
             console.error("Error converting endDate:", error);
             return undefined;
@@ -420,12 +430,13 @@ export default function ViewLease() {
   };
 
   const getEthiopianYears = () => {
-    const currentGregYear = new Date().getFullYear();
-    const [currentEthYear] = toEthiopian(currentGregYear, 1, 1);
+    const now = new GDate(new Date().toDateString())
+    const ethDate = now.toEth()
+    const currentEthYear = ethDate.year
     return Array.from({ length: 51 }, (_, idx) => currentEthYear - 25 + idx);
   };
 
-  if (loading) return <LeaseLoading />;
+  if (loading || !user) return <LeaseLoading />;
 
   return (
     <div className="container mx-auto py-8">

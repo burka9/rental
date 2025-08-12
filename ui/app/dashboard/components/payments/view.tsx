@@ -16,9 +16,9 @@ import { toast } from "sonner";
 import { useTenantStore } from "@/lib/store/tenants";
 import { usePropertyStore } from "@/lib/store/property";
 import { Lease, Payment, Bank, ROLES } from "@/lib/types";
-import { toEthiopian, toGregorian } from "@/lib/date-converter";
 import { axios, baseURL } from "@/lib/axios";
 import { Textarea } from "@/components/ui/textarea";
+import { EthDate, GDate } from "ethiopian-gregorian-date-converter";
 
 // Ethiopian month names
 const monthNames = [
@@ -167,12 +167,9 @@ export default function ViewPayments() {
   const [payment, setPayment] = useState<Payment | null>(null);
 
   // Get current Ethiopian date for default values
-  const currentGregDate = new Date();
-  const [currentEthYear, currentEthMonth, currentEthDay] = toEthiopian(
-    currentGregDate.getFullYear(),
-    currentGregDate.getMonth() + 1,
-    currentGregDate.getDate()
-  );
+  const now = new GDate(new Date().toDateString())
+  const ethDate = now.toEth()
+  const [currentEthYear, currentEthMonth, currentEthDay] = [ethDate.year, ethDate.month, ethDate.day];
 
   // Form setup with dynamic default values
   const form = useForm<z.infer<typeof formSchema>>({
@@ -265,12 +262,11 @@ export default function ViewPayments() {
           console.log('data ------------------------------------')
           console.log(data)
           // Populate form with payment data in view mode
-          const paymentDate = data.paymentDate ? toEthiopian(
-            new Date(data.paymentDate).getFullYear(),
-            new Date(data.paymentDate).getMonth() + 1,
-            new Date(data.paymentDate).getDate()
-          ) : [currentEthYear, currentEthMonth, currentEthDay];
+          const gDate = new GDate(data.paymentDate.toDateString())
+          const ethDate = gDate.toEth()
           
+          const paymentDate = data.paymentDate ? [ethDate.year, ethDate.month, ethDate.day] : [currentEthYear, currentEthMonth, currentEthDay];
+
           form.reset({
             leaseId: data.leaseId,
             paidAmount: data.paidAmount,
@@ -290,8 +286,9 @@ export default function ViewPayments() {
 
   // Generate Ethiopian years (±25 years from current)
   const getEthiopianYears = () => {
-    const currentGregYear = new Date().getFullYear();
-    const [currentEthYear] = toGregorian(currentGregYear, 1, 1);
+    const now = new GDate(new Date().toDateString())
+    const ethDate = now.toEth()
+    const currentEthYear = ethDate.year
     return Array.from({ length: 51 }, (_, idx) => currentEthYear - 25 + idx);
   };
 
@@ -311,12 +308,9 @@ export default function ViewPayments() {
     const paymentDate = values.paymentDate.year && values.paymentDate.month && values.paymentDate.day
       ? (() => {
           try {
-            const [gregYear, gregMonth, gregDay] = toGregorian(
-              values.paymentDate.year,
-              values.paymentDate.month,
-              values.paymentDate.day
-            );
-            return new Date(gregYear, gregMonth - 1, gregDay).toISOString();
+            const paymentEthDate = new EthDate(values.paymentDate.year, values.paymentDate.month, values.paymentDate.day)
+            const gregDate = paymentEthDate.toGreg();
+            return gregDate.toISOString();
           } catch (error) {
             console.error("Error converting paymentDate to Gregorian:", error);
             return undefined;

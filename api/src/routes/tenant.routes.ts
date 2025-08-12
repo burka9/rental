@@ -5,10 +5,10 @@ import { createTenant, deleteTenant, getSingleTenant, getTenant, updateTenant } 
 import { createLease, updateLease } from "../controller/lease.controller";
 import { LateFeeType, PaymentType } from "../entities/Lease.entity";
 import { getRoom, getRooms, RoomRepository, updateRoom } from "../controller/room.controller";
-import { toGregorian } from "../lib/date-converter";
 import { In } from "typeorm";
 import { verifyToken, verifyUser } from "./auth.routes";
 import { exportTenantsToExcel } from "../controller/report.controller";
+import { EthDate } from "ethiopian-gregorian-date-converter";
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -129,16 +129,14 @@ export default function (): Router {
 
     const startDate = JSON.parse(body.startDate)[0];
     const endDate = JSON.parse(body.endDate)[0];
-    const startDateEthiopian = toGregorian([Number(startDate.year), Number(startDate.month), Number(startDate.day)]);
-    const endDateEthiopian = toGregorian([Number(endDate.year), Number(endDate.month), Number(endDate.day)]);
-    
-    console.log(JSON.parse(body.paymentAmountPerMonth))
+    const startDateEthiopian = new EthDate(Number(startDate.year), Number(startDate.month), Number(startDate.day)).toGreg();
+    const endDateEthiopian = new EthDate(Number(endDate.year), Number(endDate.month), Number(endDate.day)).toGreg();
     
     const leaseBody = {
       tenant,
       roomIds: roomIds.map((room) => Number(room.roomId)),
-      startDate: new Date(startDateEthiopian[0], startDateEthiopian[1] - 1, startDateEthiopian[2]),
-      endDate: new Date(endDateEthiopian[0], endDateEthiopian[1] - 1, endDateEthiopian[2]),
+      startDate: startDateEthiopian,
+      endDate: endDateEthiopian,
       paymentIntervalInMonths: Number(body.paymentIntervalInMonths),
       paymentAmountPerMonth: JSON.parse(body.paymentAmountPerMonth),
       deposit: isNaN(Number(body.deposit)) ? 0 : Number(body.deposit),

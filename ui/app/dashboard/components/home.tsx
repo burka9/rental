@@ -12,6 +12,7 @@ import { LoadingSpinner } from "@/components/loading-spinner";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
 import { usePropertyStore } from "@/lib/store/property";
+import { toEthiopianDateString } from "@/lib/utils";
 
 interface Room {
   id: number;
@@ -90,7 +91,8 @@ export default function Dashboard() {
               <p className="text-blue-100">Here&apos;s what&apos;s happening with your properties today</p>
             </div>
             <Badge variant="secondary" className="mt-4 md:mt-0 bg-white/10 hover:bg-white/20 text-white border-0 px-4 py-2 text-sm font-medium">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              {/* {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} */}
+              {toEthiopianDateString(new Date())}
             </Badge>
           </div>
         </div>

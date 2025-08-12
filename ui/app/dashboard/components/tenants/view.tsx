@@ -8,7 +8,6 @@ import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { toEthiopian } from "@/lib/date-converter";
 
 // UI Components
 import { Button } from "@/components/ui/button";
@@ -37,6 +36,7 @@ import { useStore } from "@/lib/store";
 
 // Utils
 import { cn } from "@/lib/utils";
+import { GDate } from "ethiopian-gregorian-date-converter";
 
 // Loading Skeleton
 const FormFieldSkeleton = ({ label = true }: { label?: boolean }) => (
@@ -233,22 +233,23 @@ export default function ViewTenant() {
     
     const startDate = [{ day: NaN, month: NaN, year: NaN }]
     const _start = new Date(tenant.leases?.[0]?.startDate ?? "");
+    const gregStart = new GDate(_start.toDateString())
+    const ethStart = gregStart.toEth()
 
     if (_start.toString() !== "Invalid Date") {
-      const converted = toEthiopian(_start.getFullYear(), _start.getMonth() + 1, _start.getDate());
-      console.log(converted)
-      startDate[0].day = converted[2]
-      startDate[0].month = converted[1]
-      startDate[0].year = converted[0]
+      startDate[0].day = ethStart.day
+      startDate[0].month = ethStart.month
+      startDate[0].year = ethStart.year
     }
     
     const endDate = [{ day: NaN, month: NaN, year: NaN }]
     const _end = new Date(tenant.leases?.[0]?.endDate ?? "");
+    const gregEnd = new GDate(_end.toDateString())
+    const ethEnd = gregEnd.toEth()
     if (_end.toString() !== "Invalid Date") {
-      const converted = toEthiopian(_end.getFullYear(), _end.getMonth() + 1, _end.getDate());
-      endDate[0].day = converted[2]
-      endDate[0].month = converted[1]
-      endDate[0].year = converted[0]
+      endDate[0].day = ethEnd.day
+      endDate[0].month = ethEnd.month
+      endDate[0].year = ethEnd.year
     }
 
     form.reset({
@@ -334,6 +335,7 @@ export default function ViewTenant() {
         toast.error("Failed to create tenant");
       } else if (editing && tenant) {
         const formData = new FormData();
+        formData.append("id", tenant.id.toString())
         if (values.phone) formData.append("phone", values.phone);
         if (values.address) formData.append("address", values.address);
         if (values.tinNumber) formData.append("tinNumber", values.tinNumber);
@@ -500,7 +502,7 @@ return (
                   <X className="mr-2 h-4 w-4" />
                   Cancel
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button onClick={handleSubmit} disabled={isSubmitting}>
                   {isSubmitting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (

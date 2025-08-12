@@ -16,6 +16,7 @@ import { hashSync } from "bcrypt";
 import { ROLES } from "./entities/User.entity";
 import { resolve } from "path";
 import { mkdirSync } from "fs";
+import { changeDate } from "./controller/util.controller";
 
 const app = express()
 app.use(express.json())
@@ -73,6 +74,12 @@ Database.initialize()
 
 		// init default admin
 		const userRepository = Database.getRepository(User)
+
+
+		// dev
+		changeDate()
+			.then(d => logger.info(`============: ${d}`))
+			.catch(console.error)
 
 		return Promise.all([
 			userRepository,

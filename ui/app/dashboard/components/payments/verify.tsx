@@ -17,8 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Lease, Payment, Bank, Tenant, Room } from "@/lib/types";
 import { axios } from "@/lib/axios";
 import { cn } from "@/lib/utils";
-import { toEthiopian } from '@/lib/date-converter';
 import { usePropertyStore } from "@/lib/store/property";
+import { GDate } from "ethiopian-gregorian-date-converter";
 
 // Ethiopian month names
 const monthNames = [
@@ -287,12 +287,18 @@ export default function VerifyPayment() {
                       payment.paymentDate
                         ? (() => {
                             const gregDate = new Date(payment.paymentDate);
+
                             try {
-                              const [ethYear, ethMonth, ethDay] = toEthiopian(
-                                gregDate.getFullYear(),
-                                gregDate.getMonth() + 1,
-                                gregDate.getDate()
-                              );
+                              const gDate = new GDate(gregDate.toDateString())
+                              const ethDate = gDate.toEth()
+                              // const [ethYear, ethMonth, ethDay] = toEthiopian(
+                              //   gregDate.getFullYear(),
+                              //   gregDate.getMonth() + 1,
+                              //   gregDate.getDate()
+                              // );
+                              const ethYear = ethDate.year
+                              const ethMonth = ethDate.month
+                              const ethDay = ethDate.day
                               return `${ethDay} ${monthNames[ethMonth - 1]} ${ethYear}`;
                             } catch (error) {
                               console.error("Error converting paymentDate to Ethiopian:", error);

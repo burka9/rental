@@ -134,7 +134,7 @@ export const useTenantStore = create<Store>((set) => ({
     const { user } = useStore.getState()
 
     try {
-      const res = await axios.post('/tenant', tenant, {
+      const res = await axios.put(`/tenant/${tenant.get('id')}`, tenant, {
         headers: {
           Authorization: `Bearer ${user?.token}`,
           "Content-Type": "multipart/form-data"

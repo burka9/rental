@@ -1,9 +1,13 @@
 import { Router } from "express";
-import { getOverview } from "../controller/util.controller";
+import { changeDate, getOverview } from "../controller/util.controller";
 import { sendNotification } from "../socket";
 import { createNotification } from "../controller/notification.controller";
 import { verifyUser, verifyToken } from "./auth.routes";
 import { ROLES } from "../entities/User.entity";
+import { LeaseRepository } from "../controller/lease.controller";
+import { GDate } from "ethiopian-gregorian-date-converter";
+import { readFileSync } from "fs";
+import { resolve } from "path";
 
 export default function(): Router {
 	const router = Router()
@@ -30,5 +34,11 @@ export default function(): Router {
 		})
 	})
 
+	router.delete('/change-date', async (req, res) => {
+		const idx = changeDate()
+
+		res.json({ success: true, total: idx })
+	})
+	
 	return router
 }
